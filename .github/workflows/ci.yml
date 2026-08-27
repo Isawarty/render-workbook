@@ -113,7 +113,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             ninja-build libvulkan-dev \
-            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
+            libwayland-dev
 
       - uses: lukka/get-cmake@latest
 
@@ -131,6 +132,9 @@ jobs:
           for tag in $tags; do
             echo "::group::$tag"
             git checkout --quiet --detach "$tag"
+            # 每个 tag 用干净的构建目录，避免上一个 tag 的 CMake cache
+            # 串到下一个 tag（9 个 tag 共用一份 cache 是当初 wayland 报错的隐患之一）。
+            rm -rf build/ci-lavapipe
             cmake --preset ci-lavapipe > /dev/null
             cmake --build build/ci-lavapipe
             echo "::endgroup::"
