@@ -1,0 +1,26 @@
+# build
+build/
+out/
+_deps/
+CMakeUserPresets.json
+
+# authoring staging (generator sources live on the `authoring` orphan branch)
+.authoring/
+
+# stray compiler artifacts
+*.obj
+*.exe
+*.pdb
+*.ilk
+
+# editors
+.vs/
+.vscode/
+.idea/
+*.user
+.DS_Store
+
+# test artifacts
+tests/output/
+*.actual.png
+*.diff.png

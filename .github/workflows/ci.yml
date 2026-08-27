@@ -1,0 +1,137 @@
+name: ci
+
+on:
+  # 只监听这两个分支。tag 不单独触发 —— done/* 指向的就是 course 上
+  # 已经测过的同一批提交, 再跑一遍纯属重复。
+  push:
+    branches: [course, work]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      update_golden:
+        description: '重新生成 golden 基准图并作为 artifact 上传'
+        type: boolean
+        default: false
+
+jobs:
+  # ---------------------------------------------------------------------
+  # lavapipe：唯一有资格生成 golden 基准图的环境。
+  # 纯 CPU 软件渲染，像素结果完全确定，NVIDIA / Apple Silicon 都对不齐它。
+  # ---------------------------------------------------------------------
+  test-lavapipe:
+    name: Linux / lavapipe (判分基准)
+    runs-on: ubuntu-24.04
+    # work 分支是用户的进度条, 全挖空状态下必然是红的。
+    # 在那上面跑判分只会制造噪音, 让人对红叉脱敏。
+    if: github.ref != 'refs/heads/work'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 lavapipe、validation layer 与 X11 依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build mesa-vulkan-drivers vulkan-validationlayers \
+            libvulkan-dev vulkan-tools xvfb \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+
+      - name: 确认 lavapipe 可用
+        env:
+          VK_LOADER_DRIVERS_SELECT: lvp_icd.*
+        run: vulkaninfo --summary | head -40 || true
+
+      - uses: lukka/get-cmake@latest
+
+      - name: Configure
+        run: cmake --preset ci-lavapipe
+
+      - name: Build
+        run: cmake --build build/ci-lavapipe
+
+      # xvfb 提供一个虚拟 X display, GLFW 才能建窗口和 surface。
+      # 这样测的仍然是真实的 swapchain 路径, 而不是另一条 headless 分支。
+      - name: Test
+        env:
+          VK_LOADER_DRIVERS_SELECT: lvp_icd.*
+          RWB_UPDATE_GOLDEN: ${{ inputs.update_golden && '1' || '0' }}
+        run: xvfb-run -a ctest --preset ci-lavapipe
+
+      - name: 上传新生成的基准图
+        if: ${{ inputs.update_golden }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-baselines
+          path: tests/golden/
+
+      - name: 失败时上传实际结果与差异图
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-lavapipe
+          path: build/ci-lavapipe/tests/output/
+
+  # ---------------------------------------------------------------------
+  # Windows / macOS 只做编译检查。
+  # 它们的 GPU 结果无法和基准图严格比对, 跑 L3 只会得到假红。
+  # ---------------------------------------------------------------------
+  build-windows:
+    name: Windows / MSVC
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: lukka/get-cmake@latest
+      - run: cmake --preset win-msvc
+      - run: cmake --build build/win-msvc
+
+  build-macos:
+    name: macOS / arm64
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lukka/get-cmake@latest
+      - run: brew install ninja
+      - run: cmake --preset mac-arm64
+      - run: cmake --build build/mac-arm64
+
+  # ---------------------------------------------------------------------
+  # 骨架必须能编译。
+  # 编译不过 = 领不到题, 这是挖空式课程最致命的失败模式。
+  # ---------------------------------------------------------------------
+  skeletons-compile:
+    name: 所有 start/* 骨架可编译
+    runs-on: ubuntu-24.04
+    # work 分支是用户的进度条, 全挖空状态下必然是红的。
+    # 在那上面跑判分只会制造噪音, 让人对红叉脱敏。
+    if: github.ref != 'refs/heads/work'
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build libvulkan-dev \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+
+      - uses: lukka/get-cmake@latest
+
+      - name: 逐个 start tag 编译
+        run: |
+          set -e
+          tags=$(git tag -l 'start/*' | sort)
+          # 没有 tag 时循环什么都不做然后报绿 —— 一个「检查了零个东西却成功」的 job
+          # 比失败更危险。所以这里显式失败。
+          if [ -z "$tags" ]; then
+            echo "::error::找不到任何 start/* tag。tag 是否推到远端了? (git push origin --tags)"
+            exit 1
+          fi
+          echo "将检查 $(echo "$tags" | wc -l) 个骨架 tag"
+          for tag in $tags; do
+            echo "::group::$tag"
+            git checkout --quiet --detach "$tag"
+            cmake --preset ci-lavapipe > /dev/null
+            cmake --build build/ci-lavapipe
+            echo "::endgroup::"
+          done
