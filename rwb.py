@@ -43,7 +43,7 @@ PROJECTS = {
                    tasks=8, stages=8),
     "p03": Project(test_target="p03_tests", app_target="p03_compute",
                    executable_dir=Path("projects/p03-compute"),
-                   tasks=5, stages=5),
+                   tasks=7, stages=7),
 }
 
 SYSTEM_PRESETS = {

@@ -30,6 +30,7 @@ ComputeApp::ComputeApp(AppConfig config) : m_config(std::move(config)) {
     cfg.enableSyncValidation = m_config.enableValidation;   // 漏 barrier 的唯一探测器
     cfg.title                = m_config.title;
     cfg.features.fragmentStoresAndAtomics = true;
+    cfg.features.vertexPipelineStoresAndAtomics = true;
 
     m_ctx = std::make_unique<rwb::rhi::Context>(cfg);
 

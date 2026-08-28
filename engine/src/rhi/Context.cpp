@@ -289,6 +289,7 @@ bool Context::deviceSuitable(VkPhysicalDevice device) const {
     if (want.shaderInt64       && !have.shaderInt64)       return false;
     if (want.multiDrawIndirect && !have.multiDrawIndirect) return false;
     if (want.fragmentStoresAndAtomics && !have.fragmentStoresAndAtomics) return false;
+    if (want.vertexPipelineStoresAndAtomics && !have.vertexPipelineStoresAndAtomics) return false;
 
     return true;
 }
@@ -371,6 +372,8 @@ void Context::createLogicalDevice() {
     features.shaderInt64       = want.shaderInt64       ? VK_TRUE : VK_FALSE;
     features.multiDrawIndirect = want.multiDrawIndirect ? VK_TRUE : VK_FALSE;
     features.fragmentStoresAndAtomics = want.fragmentStoresAndAtomics ? VK_TRUE : VK_FALSE;
+    features.vertexPipelineStoresAndAtomics =
+        want.vertexPipelineStoresAndAtomics ? VK_TRUE : VK_FALSE;
 
     // 可选的：设备支持才开。调用方必须查 enabledFeatures() 才能用。
     const DeviceFeatures& opt = m_config.optionalFeatures;
@@ -382,6 +385,9 @@ void Context::createLogicalDevice() {
     if (opt.multiDrawIndirect && have.multiDrawIndirect) features.multiDrawIndirect = VK_TRUE;
     if (opt.fragmentStoresAndAtomics && have.fragmentStoresAndAtomics) {
         features.fragmentStoresAndAtomics = VK_TRUE;
+    }
+    if (opt.vertexPipelineStoresAndAtomics && have.vertexPipelineStoresAndAtomics) {
+        features.vertexPipelineStoresAndAtomics = VK_TRUE;
     }
 
     m_enabledFeatures = features;

@@ -44,6 +44,7 @@ struct DeviceFeatures {
     bool shaderInt64       = false;
     bool multiDrawIndirect = false;   // P3-t07 / GPU-driven 方向
     bool fragmentStoresAndAtomics = false; // P3-t05 fragment shader 写 storage buffer
+    bool vertexPipelineStoresAndAtomics = false; // P3-t06 vertex shader 写回读 buffer
 };
 
 struct ContextConfig {

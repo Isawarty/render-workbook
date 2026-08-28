@@ -8,7 +8,9 @@ set(P03_STEP_SOURCES
   src/steps/02_reduce.cpp
   src/steps/03_scan.cpp
   src/steps/04_bitonic.cpp
-  src/steps/05_postprocess.cpp)
+  src/steps/05_postprocess.cpp
+  src/steps/06_particles.cpp
+  src/steps/07_indirect.cpp)
 
 add_library(p03_lib STATIC
   src/ComputeApp.cpp
@@ -25,7 +27,11 @@ rwb_add_shaders(p03_lib SHADERS
   ${CMAKE_CURRENT_SOURCE_DIR}/shaders/bitonic.comp
   ${CMAKE_CURRENT_SOURCE_DIR}/shaders/postprocess.comp
   ${CMAKE_CURRENT_SOURCE_DIR}/shaders/postprocess.vert
-  ${CMAKE_CURRENT_SOURCE_DIR}/shaders/postprocess.frag)
+  ${CMAKE_CURRENT_SOURCE_DIR}/shaders/postprocess.frag
+  ${CMAKE_CURRENT_SOURCE_DIR}/shaders/particles_update.comp
+  ${CMAKE_CURRENT_SOURCE_DIR}/shaders/particles_consume.vert
+  ${CMAKE_CURRENT_SOURCE_DIR}/shaders/indirect_prepare.comp
+  ${CMAKE_CURRENT_SOURCE_DIR}/shaders/indirect_scale.comp)
 
 set(P03_SHADER_DIR "${CMAKE_BINARY_DIR}/shaders/p03_lib")
 target_compile_definitions(p03_lib PUBLIC RWB_SHADER_DIR="${P03_SHADER_DIR}")
@@ -36,6 +42,8 @@ target_link_libraries(p03_compute PRIVATE p03_lib rwb::warnings)
 add_executable(p03_tests tests/test_p03.cpp)
 target_link_libraries(p03_tests PRIVATE p03_lib rwb::testfw rwb::warnings)
 
-foreach(NN 01 02 03 04 05)
+foreach(NN 01 02 03 04 05 06)
   rwb_add_test(p03-t${NN} TARGET p03_tests LABELS "l1;l2;p03" ARGS "[t${NN}]")
 endforeach()
+
+rwb_add_test(p03-t07 TARGET p03_tests LABELS "l1;l2;p03" ARGS "[t07]")

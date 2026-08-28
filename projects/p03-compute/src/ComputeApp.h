@@ -73,6 +73,13 @@ struct BarrierSnapshot {
     VkAccessFlags        dstAccess = 0;
 };
 
+struct QueueSyncSnapshot {
+    std::uint32_t computeFamily = VK_QUEUE_FAMILY_IGNORED;
+    std::uint32_t graphicsFamily = VK_QUEUE_FAMILY_IGNORED;
+    bool usedOwnershipTransfer = false;
+    bool semaphoreWaitedByGraphics = false;
+};
+
 // t02 的两条归约路径。
 enum class ReducePath {
     Subgroup,   // 用 subgroupAdd()，要求设备支持 subgroup 算术运算
@@ -161,6 +168,19 @@ public:
                                       std::uint32_t width, std::uint32_t height);
     const BarrierSnapshot& lastComputeToGraphicsBarrier() const { return m_lastBarrier; }
 
+    // ===== t06 —— src/steps/06_particles.cpp ================================
+    // RGBA/vec4 粒子位置由 compute 更新，再由 graphics vertex stage 消费并写入
+    // 回读 buffer。专用 compute queue 存在时必须转移 queue-family ownership。
+    std::vector<float> runParticles(const std::vector<float>& positions,
+                                    float deltaX, float deltaY);
+    const QueueSyncSnapshot& lastQueueSync() const { return m_lastQueueSync; }
+
+    // ===== t07 —— src/steps/07_indirect.cpp =================================
+    // 第一条 compute shader 在 GPU 上生成 VkDispatchIndirectCommand，第二条通过
+    // vkCmdDispatchIndirect 执行缩放。返回缩放后的 float buffer。
+    std::vector<float> runIndirectScale(const std::vector<float>& data, float factor);
+    const VkDispatchIndirectCommand& lastIndirectCommand() const { return m_lastIndirect; }
+
 private:
     void cleanup() noexcept;
 
@@ -168,6 +188,8 @@ private:
     std::unique_ptr<rwb::rhi::Context> m_ctx;
     VkDescriptorPool                   m_descriptorPool = VK_NULL_HANDLE;
     BarrierSnapshot                    m_lastBarrier{};
+    QueueSyncSnapshot                  m_lastQueueSync{};
+    VkDispatchIndirectCommand          m_lastIndirect{};
 };
 
 // 让「中途抛异常」不至于变成显存泄漏。

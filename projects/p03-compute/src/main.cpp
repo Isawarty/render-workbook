@@ -11,7 +11,7 @@
 int main(int argc, char** argv) {
     int task = argc > 1 ? std::atoi(argv[1]) : 1;
     if (task < 1) task = 1;
-    if (task > 5) task = 5;
+    if (task > 7) task = 7;
 
     try {
         p03::ComputeApp app;
@@ -36,11 +36,18 @@ int main(int argc, char** argv) {
             const auto result = app.runBitonicSort({9, 1, 4, 1, 5, 2, 6});
             rwb::logInfo(rwb::format("sort: %u %u %u %u %u %u %u", result[0], result[1],
                                      result[2], result[3], result[4], result[5], result[6]));
-        } else {
+        } else if (task == 5) {
             const std::vector<float> pixels{4, 1, 0, 1, 0, 2, 1, 1, 1, 0, 3, 1, 2, 2, 2, 1};
             const auto result = app.runPostprocess(pixels, 2, 2);
             rwb::logInfo(rwb::format("postprocess first pixel: %.3f %.3f %.3f", result[0],
                                      result[1], result[2]));
+        } else if (task == 6) {
+            const auto result = app.runParticles({0, 0, 0, 1, 1, 1, 0, 1}, 0.25f, -0.5f);
+            rwb::logInfo(rwb::format("particles first: %.3f %.3f", result[0], result[1]));
+        } else {
+            const auto result = app.runIndirectScale({1, 2, 3, 4}, 2.5f);
+            rwb::logInfo(rwb::format("indirect scale: %.1f %.1f %.1f %.1f", result[0],
+                                     result[1], result[2], result[3]));
         }
     } catch (const rwb::NotImplemented& e) {
         rwb::logError(e.what());

@@ -44,7 +44,7 @@ fail its tests legibly. If you cannot compile, you cannot even start the task.
 | P0 | Environment self-check | 8–12 | Shipped |
 | P1 | Triangle from scratch — 9 tasks, nothing pre-written | 35–45 | Shipped |
 | P2 | Resources & scene (VMA, descriptors, textures, glTF, MSAA) | 45–60 | Shipped |
-| P3 | Compute shaders (reduction, scan, bitonic sort, particles) | 35–45 | In progress — t01–t05 shipped |
+| P3 | Compute shaders (reduction, scan, bitonic sort, particles) | 35–45 | Shipped |
 | P4 | Deferred rendering + PBR + IBL, migration to Slang | 45–60 | Outlined |
 | P5 | Render graph with automatic barrier derivation | 50–70 | Outlined |
 | P6 | Lua: language, then embedding as the engine's scripting layer | 40–55 | Outlined |

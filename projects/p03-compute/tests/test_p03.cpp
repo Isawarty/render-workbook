@@ -215,3 +215,49 @@ TEST_CASE("t05 Gaussian+tonemap 由 graphics pass 消费，barrier 契约正确"
     app.reset();
     guard.requireClean();
 }
+
+TEST_CASE("t07 GPU 生成 indirect command 并覆盖非整组尾部", "[t07]") {
+    ValidationGuard guard;
+    auto app = std::make_unique<ComputeApp>();
+    REQUIRE(app->runIndirectScale({}, 3.0f).empty());
+
+    constexpr std::size_t n = 65537;
+    std::vector<float> input(n), expected(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        input[i] = static_cast<float>(static_cast<int>(i % 29) - 14) * 0.25f;
+        expected[i] = input[i] * -2.5f;
+    }
+    const auto actual = app->runIndirectScale(input, -2.5f);
+    const auto result = gt::compareApprox(actual, expected);
+    INFO(result.message);
+    REQUIRE(result.passed);
+    const auto& command = app->lastIndirectCommand();
+    REQUIRE(command.x == 257);
+    REQUIRE(command.y == 1);
+    REQUIRE(command.z == 1);
+    app.reset();
+    guard.requireClean();
+}
+
+TEST_CASE("t06 compute 更新粒子并由 graphics queue 消费", "[t06]") {
+    ValidationGuard guard;
+    auto app = std::make_unique<ComputeApp>();
+    std::vector<float> input;
+    for (std::size_t i = 0; i < 513; ++i) {
+        input.insert(input.end(), {static_cast<float>(i) * 0.001f, -0.25f, 0.0f, 1.0f});
+    }
+    auto expected = input;
+    for (std::size_t i = 0; i < expected.size(); i += 4) {
+        expected[i] += 0.125f;
+        expected[i + 1] -= 0.5f;
+    }
+    const auto actual = app->runParticles(input, 0.125f, -0.5f);
+    const auto result = gt::compareApprox(actual, expected);
+    INFO(result.message);
+    REQUIRE(result.passed);
+    const auto& sync = app->lastQueueSync();
+    REQUIRE(sync.semaphoreWaitedByGraphics);
+    REQUIRE(sync.usedOwnershipTransfer == (sync.computeFamily != sync.graphicsFamily));
+    app.reset();
+    guard.requireClean();
+}

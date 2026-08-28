@@ -4,7 +4,7 @@ P1/P2 的输出最终都进了光栅化管线。P3 暂时关掉窗口，把 GPU 
 都是 buffer，结果同步回读后与 CPU 参考实现逐元素比对。因此这一段没有 golden image，
 也没有「看起来差不多」——算错一个元素就是错。
 
-当前已交付前五题：
+当前已交付全部七题：
 
 | task | 内容 | 判分 |
 |---|---|---|
@@ -13,6 +13,8 @@ P1/P2 的输出最终都进了光栅化管线。P3 暂时关掉窗口，把 GPU 
 | t03 | 两级 exclusive prefix sum | L1 + L2 exact u32 |
 | t04 | bitonic sort；非二次幂 padding | L1 + L2 exact u32 |
 | t05 | Gaussian blur + tonemap；compute → graphics barrier | L1 + L2 float |
+| t06 | GPU 粒子；跨 queue semaphore 与 ownership transfer | L1 + L2 float |
+| t07 | GPU 生成 indirect command + indirect dispatch | L1 + L2 float/struct |
 
 ## 代码组织
 
@@ -23,6 +25,10 @@ P1/P2 的输出最终都进了光栅化管线。P3 暂时关掉窗口，把 GPU 
 src/steps/01_saxpy.cpp
 src/steps/02_reduce.cpp
 src/steps/03_scan.cpp
+src/steps/04_bitonic.cpp
+src/steps/05_postprocess.cpp
+src/steps/06_particles.cpp
+src/steps/07_indirect.cpp
 shaders/*.comp
 ```
 
@@ -45,4 +51,4 @@ python rwb.py test p03-t01
 注意：sync validation 对 descriptor 背后的 shader 读写 hazard 并不完备，不能单独证明
 barrier 正确；L2 会兜住结果错误，任务书同时要求用 RenderDoc/Nsight 检查依赖链。
 
-P3-t01–t05 都用严格 L2 验收，因此没有 L3，也不需要 golden baseline。
+P3-t01–t07 都用严格 L2 验收，因此没有 L3，也不需要 golden baseline。
