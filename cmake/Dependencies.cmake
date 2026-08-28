@@ -44,9 +44,14 @@ FetchContent_Declare(stb
   URL_HASH SHA256=9a955b1b49a4410088a2e0ee2a9c057c3c907d0c1d75454144cb980aca0ba515)   # master @2c980bb
 
 # --- 以下 P2 起才会用到，先锁好版本 ---------------------------------------
+# SOURCE_SUBDIR 故意指向一个不存在的目录，效果是「只下载、不 add_subdirectory」。
+# VMA 是纯头文件库，但它自带的 CMakeLists 会去 find_package(Vulkan)，
+# 那会打破本仓库「零 Vulkan SDK 也能编译」这条不变量。
+# 我们只要 include/vk_mem_alloc.h 这一个文件，自己包一个 INTERFACE target 就够了。
 FetchContent_Declare(vma
   URL      https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/archive/c788c52156f3ef7bc7ab769cb03c110a53ac8fcb.tar.gz
-  URL_HASH SHA256=7dacd2f5010f6e9c6a860d2767518b524c433912fcd38f8ff5681e6f40596c7a)   # v3.2.1
+  URL_HASH SHA256=7dacd2f5010f6e9c6a860d2767518b524c433912fcd38f8ff5681e6f40596c7a   # v3.2.1
+  SOURCE_SUBDIR rwb-vma-has-no-cmake)
 
 FetchContent_Declare(imgui
   URL      https://github.com/ocornut/imgui/archive/dbb5eeaadffb6a3ba6a60de1290312e5802dba5a.tar.gz
@@ -119,8 +124,13 @@ macro(rwb_require)
       endif()
 
     elseif(_dep STREQUAL "vma")
-      set(VMA_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+      rwb_require(vulkan_headers)
       FetchContent_MakeAvailable(vma)
+      if(NOT TARGET vma)
+        add_library(vma INTERFACE)
+        target_include_directories(vma INTERFACE ${vma_SOURCE_DIR}/include)
+        target_link_libraries(vma INTERFACE Vulkan::Headers)
+      endif()
 
     elseif(_dep STREQUAL "tinygltf")
       set(TINYGLTF_BUILD_LOADER_EXAMPLE OFF CACHE BOOL "" FORCE)

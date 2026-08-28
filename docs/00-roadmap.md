@@ -7,7 +7,7 @@ P3 起的新任务，其挖空、测试资产与发布门槛遵循
 [课程任务编写与反馈检查点规范](04-course-authoring.md)。核心取舍是：**不按代码行数拆题**，
 优先把 validation、日志、debug name 和状态摘要做厚，让故障自己可观察；
 只有在普通调试手段真的跨不过去的语义边界上，才加检查点。
-P0–P1 在这份规范之前就已完成并逐 tag 验证过，不回头改造。
+P0–P2 在这份规范之前就已完成并逐 tag 验证过，不回头改造。
 
 **总量 ≈ 300–390 小时。按每周 12 小时算，主线（P0–P5）约 5–6 个月，全部约 12–15 个月。**
 这是真实估计，不是保守估计。
@@ -18,14 +18,14 @@ P0–P1 在这份规范之前就已完成并逐 tag 验证过，不回头改造�
 |---|---|---|---|
 | **P0** | [环境与骨架](../projects/p00-setup/README.md) | 8–12h | ✅ 已交付 |
 | **P1** | [三角形（全挖空）](../projects/p01-triangle/README.md) | 35–45h | ✅ 已交付 |
-| P2 | 资源与场景 | 45–60h | 大纲 |
+| **P2** | [资源与场景](../projects/p02-resources/README.md) | 45–60h | ✅ 已交付 |
 | P3 | Compute Shader 专项 | 35–45h | 大纲 |
 | P4 | 延迟渲染 + PBR | 45–60h | 大纲 |
 | P5 | Render Graph | 50–70h | 大纲 |
 | P6 | Lua（语言速通 + 引擎嵌入） | 40–55h | 大纲 |
 | P7 | D3D12 概念打通（Windows-only） | 35–45h | 大纲 |
 
-P2 以后的项目在你做完 P1 并反馈格式之后再生成。
+P3 以后的项目在你做完 P2 并反馈格式之后再生成。
 
 ---
 
@@ -38,13 +38,17 @@ P1 的三角形顶点是硬编码在 shader 里的。P2 把真实的数据管线
 | t01 | VMA 接入 + vertex/index buffer + staging 上传 |
 | t02 | UBO + descriptor set layout / pool / set |
 | t03 | push constant，并与 t02 的 UBO 做对比 |
-| t04 | 纹理：image、layout transition、sampler、mipmap 生成 |
-| t05 | 深度缓冲 + depth test |
-| t06 | glTF 加载（tinygltf）+ 多 mesh 绘制 |
-| t07 | Dear ImGui 集成 |
+| t04 | 纹理：image 创建、staging 上传、layout transition |
+| t05 | image view + sampler + mipmap 生成 |
+| t06 | 深度缓冲 + depth test |
+| t07 | glTF 加载（tinygltf）+ 多 mesh 绘制 |
 | t08 | MSAA（macOS 上注意 MoltenVK 差异） |
 
 **产出**：P1 里你写的 instance/device/swapchain/同步代码提炼进 `engine/rhi/`。
+
+> 原计划这里有一题 Dear ImGui 集成，已挪到 P5-t06 —— 那里才真的需要一个可视化面板。
+> ImGui 的 Vulkan backend 是体力活，教不了 Vulkan 概念，
+> 而把 t04 拆成「image + transition」和「view + sampler + mipmap」两题，粒度更匀。
 
 ---
 
@@ -93,7 +97,7 @@ t07 是 shader 语言的分水岭。Slang 一份源码同时产出 SPIR-V / DXIL
 | t03 | **自动 barrier 推导**（读写状态机） |
 | t04 | 资源生命周期分析 + transient 资源别名（内存复用） |
 | t05 | 用 render graph 重写 P4 的延迟管线 |
-| t06 | 图可视化（graphviz 导出 / ImGui 面板） |
+| t06 | 图可视化（graphviz 导出 / **ImGui 面板** —— ImGui 的集成从 P2 挪到了这里） |
 
 图算法部分是纯 CPU 逻辑，可以写高覆盖单测；端到端验收是
 「渲染结果与 P4 的 golden image 一致」。

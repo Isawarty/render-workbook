@@ -15,7 +15,7 @@ solution you can choose not to look at. Windows and macOS. C++17 + CMake.
 |---|---|---|
 | **L1 validation** | Vulkan validation layer (including *synchronization validation*) must report zero errors and zero warnings | High |
 | **L2 readback** | GPU results read back and compared element-wise against a CPU reference implementation | **100%** |
-| **L3 golden image** | Headless render compared against a baseline | Depends on baseline |
+| **L3 golden image** | Rendered frame compared against a baseline | Depends on baseline |
 
 L1 is the layer that matters most. A Vulkan program can produce a perfectly
 correct-looking image while its synchronization is wrong — that class of bug is
@@ -26,6 +26,14 @@ rasterizer) in CI. It is the only renderer that produces identical pixels on
 NVIDIA, Apple Silicon, and CI alike. On a local GPU the harness automatically
 relaxes the tolerance and treats L3 as a smoke test.
 
+For scenes dominated by texture filtering or multisampling, even a relaxed
+per-pixel tolerance is the wrong instrument: anisotropic filtering is a
+vendor-private implementation, so NVIDIA's 16x and lavapipe's none-at-all
+disagree by far more than any sane threshold — without either being wrong.
+Those cases fall back to a *structural* comparison (16x16 block averages) on
+real GPUs, which still catches a broken composition. Strict per-pixel grading
+stays where it belongs: lavapipe in CI.
+
 **Skeletons must compile.** Every `start/*` tag is verified to build cleanly and
 fail its tests legibly. If you cannot compile, you cannot even start the task.
 
@@ -35,7 +43,7 @@ fail its tests legibly. If you cannot compile, you cannot even start the task.
 |---|---|---|---|
 | P0 | Environment self-check | 8–12 | Shipped |
 | P1 | Triangle from scratch — 9 tasks, nothing pre-written | 35–45 | Shipped |
-| P2 | Resources & scene (VMA, descriptors, textures, glTF) | 45–60 | Outlined |
+| P2 | Resources & scene (VMA, descriptors, textures, glTF, MSAA) | 45–60 | Shipped |
 | P3 | Compute shaders (reduction, scan, bitonic sort, particles) | 35–45 | Outlined |
 | P4 | Deferred rendering + PBR + IBL, migration to Slang | 45–60 | Outlined |
 | P5 | Render graph with automatic barrier derivation | 50–70 | Outlined |
@@ -47,7 +55,12 @@ Roughly 300–390 hours end to end.
 ## Layout
 
 ```
-engine/        Shared infrastructure (logging, files, window, validation sink)
+engine/        Shared infrastructure
+  core/        logging, files, validation sink, the NotImplemented exception
+  platform/    GLFW window
+  rhi/         Vulkan wrapper — this layer *is* the output of P1: instance,
+               device, swapchain, sync and presentation, extracted after you
+               have written them once by hand
 projects/      One directory per project; src/steps/0N_*.cpp = one file per task
 tests/         Grading framework: ImageCompare (L3), BufferAssert (L2)
 cmake/         SHA256-pinned dependencies, shader compilation, test registration

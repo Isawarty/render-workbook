@@ -24,3 +24,9 @@ CMakeUserPresets.json
 tests/output/
 *.actual.png
 *.diff.png
+
+# graphify knowledge-graph output
+graphify-out/
+
+# 从仓库根目录直接跑测试 exe 时的默认输出目录
+tests-output/

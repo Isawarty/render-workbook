@@ -38,6 +38,15 @@ endif()
 # volk 用动态加载，不要让任何地方直接链接 vulkan-1.lib / libvulkan.dylib
 add_compile_definitions(VK_NO_PROTOTYPES)
 
+# glm 默认按 OpenGL 的约定来，两条都要改：
+#   GLM_FORCE_RADIANS           —— 不许再有隐式的角度制重载
+#   GLM_FORCE_DEPTH_ZERO_TO_ONE —— OpenGL 的 NDC 深度是 [-1,1]，Vulkan 是 [0,1]。
+#                                  不改的话近一半深度范围会被裁掉，症状是
+#                                  「近处的东西莫名其妙消失」，而且极难联想到根因。
+# 还有第三条改不了的：Vulkan 的 NDC +Y 朝下。glm::perspective 出来的矩阵
+# 必须自己做 proj[1][1] *= -1，见 P2-t02。
+add_compile_definitions(GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE)
+
 if(APPLE)
   # MoltenVK 走 portability subset，实例创建时必须带上对应 flag（P1-t01 会讲）
   add_compile_definitions(RWB_PLATFORM_MACOS=1)
@@ -58,4 +67,8 @@ add_subdirectory(projects/p00-setup)
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/projects/p01-triangle/CMakeLists.txt")
   add_subdirectory(projects/p01-triangle)
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/projects/p02-resources/CMakeLists.txt")
+  add_subdirectory(projects/p02-resources)
 endif()

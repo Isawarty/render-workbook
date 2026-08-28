@@ -12,6 +12,8 @@
 | 一屏第三方库的警告 | 目标没链 `rwb::warnings`，或警告选项被写成了全局 `add_compile_options` |
 | FetchContent 下载后 SHA256 不匹配 | 上游 tarball 被重新打包过。不要改哈希去将就，先确认来源 |
 | Linux/CI: `fatal error: GL/gl.h: No such file` | `glfw3.h` 默认会 include OpenGL 头。`GLFW_INCLUDE_VULKAN` 只是额外加 vulkan.h，**不会**抑制它；要用 `GLFW_INCLUDE_NONE`。Windows SDK 自带该头、macOS 走 `<OpenGL/gl.h>` 分支，所以这个疏漏只在 Linux 暴露 |
+| 链接期一堆 `vkAllocateMemory` 之类未定义 | VMA 的宏没配对。必须 `VMA_STATIC_VULKAN_FUNCTIONS 0` + `VMA_DYNAMIC_VULKAN_FUNCTIONS 1`，并把 `vkGetInstanceProcAddr` / `vkGetDeviceProcAddr` 填进 `VmaVulkanFunctions`。用 `rwb/rhi/VmaUsage.h`，别直接 include `vk_mem_alloc.h` |
+| `warning C4005: APIENTRY 重定义` | tinygltf 会拉进 `<windows.h>`，而 volk/GLFW 已经定义过 APIENTRY。在 include tinygltf 的那对 pragma 里加上 4005 |
 | Linux/CI: `Failed to find wayland-scanner` | GLFW 3.4 默认同时构建 Wayland 和 X11 后端。本仓库在 Linux 上只用于 CI（xvfb 提供 X11），已在 `cmake/Dependencies.cmake` 里关掉 Wayland 后端 |
 
 ## 运行期：起不来
@@ -36,6 +38,20 @@
 | 画面闪烁 | 同步问题。多半是 `renderFinished` semaphore 按帧数而不是按图像数分配 |
 | resize 后卡死 | `vkResetFences` 放在了 `vkAcquireNextImageKHR` 之前，OUT_OF_DATE 的提前 return 留下了永不 signal 的 fence |
 | resize 后帧率暴跌但画面正常 | 重建之后没清 `m_framebufferResized`，每帧都在重建 |
+| 近处的东西莫名其妙消失 | 少了 `GLM_FORCE_DEPTH_ZERO_TO_ONE`。OpenGL 的 NDC 深度是 -1 到 1，Vulkan 是 0 到 1，近一半深度范围被裁掉了 |
+| 立方体背面盖住正面 | 没开深度测试。本课的 pipeline 刻意用 `VK_CULL_MODE_NONE`，就是为了让这个现象在 P2-t06 之前看得见 |
+| 地面远处糊成一团噪点 | mip 链没生成，或 image view 的 `levelCount` 写死成了 1（采样器只看得到最清晰那级） |
+| 地面上有一条条能看见的分界线 | 采样器的 `mipmapMode` 用了 `NEAREST`，改 `LINEAR` |
+| 第二个模型画出了第一个模型的顶点 | glTF 多 mesh 合并进同一对 buffer 时漏了 `vkCmdDrawIndexed` 的 `vertexOffset` |
+| 模型转到一个诡异的角度 | 四元数分量顺序：glTF 是 `(x,y,z,w)`，`glm::quat` 的构造是 `(w,x,y,z)` |
+| 开了 MSAA 但边缘还是锯齿 | resolve 没接上。检查 subpass 的 `pResolveAttachments`，以及 framebuffer 里附件顺序是否和 render pass 一致 |
+
+## 运行期：进程直接没了
+
+| 现象 | 原因 |
+|---|---|
+| 测试进程中途消失，判分表里一片 `?` | 某处走了 `abort()`。两个已知来源：`noexcept` 函数里抛异常（析构、`destroyBuffer`/`destroyImage`）；以及 VMA 的显存泄漏断言 |
+| `Some allocations were not freed before destruction of this memory block` | VMA 报显存泄漏。本仓库已把这条断言改成打一条 error 而不是 abort（见 `rwb/rhi/Vk.h` 的 `reportVmaLeak`）。最常见的成因是某个 `create*` 中途抛异常，跳过了它自己后面的 `destroyBuffer` |
 
 ## 运行期：validation 报错
 

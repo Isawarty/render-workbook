@@ -75,6 +75,17 @@ CompareResult compareImages(const Image& actual, const Image& expected, CompareT
         return r;
     }
 
+    // 结构比对：两边各自缩块，然后走同一套逐元素逻辑。
+    if (tol.blockSize > 1) {
+        const Image a = downsampleBlocks(actual, tol.blockSize);
+        const Image e = downsampleBlocks(expected, tol.blockSize);
+        CompareTolerance blockTol = tol;
+        blockTol.blockSize = 1;
+        CompareResult br = compareImages(a, e, blockTol);
+        br.message = format("[结构比对, %ux%u 一块] ", tol.blockSize, tol.blockSize) + br.message;
+        return br;
+    }
+
     const std::size_t n = actual.pixels.size();
     for (std::size_t i = 0; i + 3 < n; i += 4) {
         int worstForPixel = 0;
@@ -97,6 +108,38 @@ CompareResult compareImages(const Image& actual, const Image& expected, CompareT
     return r;
 }
 
+Image downsampleBlocks(const Image& image, std::uint32_t block) {
+    if (block <= 1 || image.empty()) return image;
+
+    Image out;
+    // 向上取整：边上那一块可能不满，按实际像素数平均就行。
+    out.width  = (image.width  + block - 1) / block;
+    out.height = (image.height + block - 1) / block;
+    out.pixels.assign(static_cast<std::size_t>(out.width) * out.height * 4, 0);
+
+    for (std::uint32_t by = 0; by < out.height; ++by) {
+        for (std::uint32_t bx = 0; bx < out.width; ++bx) {
+            std::uint64_t sum[4] = {0, 0, 0, 0};
+            std::uint32_t count  = 0;
+
+            const std::uint32_t yEnd = std::min((by + 1) * block, image.height);
+            const std::uint32_t xEnd = std::min((bx + 1) * block, image.width);
+            for (std::uint32_t y = by * block; y < yEnd; ++y) {
+                for (std::uint32_t x = bx * block; x < xEnd; ++x) {
+                    const std::size_t i = (static_cast<std::size_t>(y) * image.width + x) * 4;
+                    for (int c = 0; c < 4; ++c) sum[c] += image.pixels[i + c];
+                    ++count;
+                }
+            }
+            const std::size_t o = (static_cast<std::size_t>(by) * out.width + bx) * 4;
+            for (int c = 0; c < 4; ++c) {
+                out.pixels[o + c] = count ? static_cast<std::uint8_t>(sum[c] / count) : 0;
+            }
+        }
+    }
+    return out;
+}
+
 bool isSoftwareRenderer(const std::string& deviceName) {
     const std::string n = toLower(deviceName);
     return n.find("llvmpipe")    != std::string::npos ||
@@ -111,12 +154,20 @@ CompareTolerance toleranceForDevice(const std::string& deviceName) {
                                           : CompareTolerance::lenient();
 }
 
-CompareResult compareToGolden(const std::string& name, const Image& actual, CompareTolerance tol) {
+CompareTolerance toleranceForDevice(const std::string& deviceName, bool filteringSensitive) {
+    if (isSoftwareRenderer(deviceName)) return CompareTolerance::strict();
+    return filteringSensitive ? CompareTolerance::structural() : CompareTolerance::lenient();
+}
+
+namespace {
+
+CompareResult compareToGoldenImpl(const std::string& name, const Image& actual,
+                                  CompareTolerance tol, bool allowUpdate) {
     const fs::path golden = fs::path(goldenDir()) / (name + ".png");
     const fs::path outDir = fs::path(outputDir());
 
     const char* update = std::getenv("RWB_UPDATE_GOLDEN");
-    if (update && std::string(update) == "1") {
+    if (allowUpdate && update && std::string(update) == "1") {
         savePng(golden.string(), actual);
         CompareResult r;
         r.passed  = true;
@@ -164,6 +215,18 @@ CompareResult compareToGolden(const std::string& name, const Image& actual, Comp
         }
     }
     return r;
+}
+
+} // namespace
+
+CompareResult compareToGolden(const std::string& name, const Image& actual,
+                              CompareTolerance tol) {
+    return compareToGoldenImpl(name, actual, tol, /*allowUpdate=*/true);
+}
+
+CompareResult compareToGoldenReadOnly(const std::string& name, const Image& actual,
+                                      CompareTolerance tol) {
+    return compareToGoldenImpl(name, actual, tol, /*allowUpdate=*/false);
 }
 
 } // namespace rwb::test
