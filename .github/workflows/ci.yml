@@ -129,12 +129,17 @@ jobs:
             exit 1
           fi
           echo "将检查 $(echo "$tags" | wc -l) 个骨架 tag"
+          # 刻意「共用」同一个构建目录。
+          #
+          # 之前这里每个 tag 都 rm -rf build/，当时以为跨 tag 的 CMake cache
+          # 是 wayland 报错的成因之一 —— 其实不是，真正的原因在
+          # cmake/Dependencies.cmake 里已经修掉了。
+          # 而共用构建目录省下的是：glslang 这类第三方依赖只编一次，
+          # 而不是每个 tag 重编一遍。tag 数从 9 涨到 17 之后这个差别是几十分钟。
+          # tag 之间真正变的只有本仓库自己的源码，CMakeLists 改了 CMake 会自己重配。
           for tag in $tags; do
             echo "::group::$tag"
             git checkout --quiet --detach "$tag"
-            # 每个 tag 用干净的构建目录，避免上一个 tag 的 CMake cache
-            # 串到下一个 tag（9 个 tag 共用一份 cache 是当初 wayland 报错的隐患之一）。
-            rm -rf build/ci-lavapipe
             cmake --preset ci-lavapipe > /dev/null
             cmake --build build/ci-lavapipe
             echo "::endgroup::"
