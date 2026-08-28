@@ -1,0 +1,9 @@
+#version 450
+// TODO(p03-t02): 共享内存树形归约。骨架保持可编译，host 入口会先以 RWB_TODO 失败。
+layout(local_size_x = 256) in;
+layout(std430, set = 0, binding = 0) readonly buffer InBuf { float inData[]; };
+layout(std430, set = 0, binding = 1) writeonly buffer OutBuf { float outData[]; };
+layout(push_constant) uniform Push { uint n; } pc;
+void main() {
+    if (gl_LocalInvocationID.x == 0u) outData[gl_WorkGroupID.x] = 0.0;
+}

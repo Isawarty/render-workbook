@@ -1,0 +1,25 @@
+#version 450
+
+// t01 —— saxpy: y := a * x + y
+//
+// 这个 shader 直接给你，不是挖空题。它足够短，读一遍就懂；
+// 本题的考点在 host 一侧：管线、descriptor、dispatch 组数、barrier。
+//
+// 注意最后一行的边界检查。dispatch 是按「组」发的，元素个数不是组大小的整数倍时，
+// 最后一组必然有一部分线程越界 —— 没有这行就是越界写。
+
+layout(local_size_x = 256) in;
+
+layout(std430, set = 0, binding = 0) readonly buffer XBuf { float x[]; };
+layout(std430, set = 0, binding = 1)          buffer YBuf { float y[]; };
+
+layout(push_constant) uniform Push {
+    float a;
+    uint  n;
+} pc;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= pc.n) return;
+    y[i] = pc.a * x[i] + y[i];
+}

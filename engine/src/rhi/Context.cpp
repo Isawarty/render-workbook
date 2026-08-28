@@ -54,6 +54,16 @@ bool hasInstanceExtension(const char* name) {
     });
 }
 
+bool hasLayerExtension(const char* layer, const char* name) {
+    std::uint32_t count = 0;
+    vkEnumerateInstanceExtensionProperties(layer, &count, nullptr);
+    std::vector<VkExtensionProperties> available(count);
+    vkEnumerateInstanceExtensionProperties(layer, &count, available.data());
+    return std::any_of(available.begin(), available.end(), [name](const VkExtensionProperties& e) {
+        return std::strcmp(e.extensionName, name) == 0;
+    });
+}
+
 bool hasDeviceExtension(VkPhysicalDevice device, const char* name) {
     std::uint32_t count = 0;
     vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr);
@@ -126,6 +136,14 @@ void Context::createInstance() {
         m_window ? Window::requiredInstanceExtensions() : std::vector<const char*>{};
     if (m_config.enableValidation) {
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        if (m_config.enableSyncValidation) {
+            if (!hasLayerExtension(kValidationLayer, VK_EXT_LAYER_SETTINGS_EXTENSION_NAME)) {
+                throw std::runtime_error(
+                    "请求了 synchronization validation，但 validation layer 不支持 "
+                    "VK_EXT_layer_settings；请更新 Vulkan SDK。");
+            }
+            extensions.push_back(VK_EXT_LAYER_SETTINGS_EXTENSION_NAME);
+        }
     }
 
     VkInstanceCreateFlags flags = 0;
@@ -144,10 +162,32 @@ void Context::createInstance() {
     createInfo.ppEnabledExtensionNames = extensions.data();
 
     VkDebugUtilsMessengerCreateInfoEXT debugInfo = makeDebugMessengerInfo();
+
+    // 现代 validation layer 用 VK_EXT_layer_settings；旧的
+    // VkValidationFeaturesEXT/enables 已弃用，而且新版 layer 可能直接忽略它。
+    const VkBool32 enableSync = VK_TRUE;
+    VkLayerSettingEXT syncSetting{};
+    syncSetting.pLayerName   = kValidationLayer;
+    syncSetting.pSettingName = "validate_sync";
+    syncSetting.type         = VK_LAYER_SETTING_TYPE_BOOL32_EXT;
+    syncSetting.valueCount   = 1;
+    syncSetting.pValues      = &enableSync;
+
+    VkLayerSettingsCreateInfoEXT layerSettings{};
+    layerSettings.sType        = VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT;
+    layerSettings.settingCount = 1;
+    layerSettings.pSettings    = &syncSetting;
+
     if (m_config.enableValidation) {
         createInfo.enabledLayerCount   = 1;
         createInfo.ppEnabledLayerNames = &kValidationLayer;
-        createInfo.pNext               = &debugInfo;   // 覆盖 create/destroy instance 本身
+        // 两个结构都挂在 instance 的 pNext 链上。
+        if (m_config.enableSyncValidation) {
+            layerSettings.pNext = &debugInfo;
+            createInfo.pNext = &layerSettings;
+        } else {
+            createInfo.pNext = &debugInfo;             // 覆盖 create/destroy instance 本身
+        }
     }
 
     VK_CHECK(vkCreateInstance(&createInfo, nullptr, &m_instance));
@@ -230,6 +270,7 @@ bool Context::deviceSuitable(VkPhysicalDevice device) const {
     if (want.independentBlend  && !have.independentBlend)  return false;
     if (want.shaderInt64       && !have.shaderInt64)       return false;
     if (want.multiDrawIndirect && !have.multiDrawIndirect) return false;
+    if (want.fragmentStoresAndAtomics && !have.fragmentStoresAndAtomics) return false;
 
     return true;
 }
@@ -311,6 +352,7 @@ void Context::createLogicalDevice() {
     features.independentBlend  = want.independentBlend  ? VK_TRUE : VK_FALSE;
     features.shaderInt64       = want.shaderInt64       ? VK_TRUE : VK_FALSE;
     features.multiDrawIndirect = want.multiDrawIndirect ? VK_TRUE : VK_FALSE;
+    features.fragmentStoresAndAtomics = want.fragmentStoresAndAtomics ? VK_TRUE : VK_FALSE;
 
     // 可选的：设备支持才开。调用方必须查 enabledFeatures() 才能用。
     const DeviceFeatures& opt = m_config.optionalFeatures;
@@ -320,6 +362,9 @@ void Context::createLogicalDevice() {
     if (opt.independentBlend  && have.independentBlend)  features.independentBlend  = VK_TRUE;
     if (opt.shaderInt64       && have.shaderInt64)       features.shaderInt64       = VK_TRUE;
     if (opt.multiDrawIndirect && have.multiDrawIndirect) features.multiDrawIndirect = VK_TRUE;
+    if (opt.fragmentStoresAndAtomics && have.fragmentStoresAndAtomics) {
+        features.fragmentStoresAndAtomics = VK_TRUE;
+    }
 
     m_enabledFeatures = features;
 

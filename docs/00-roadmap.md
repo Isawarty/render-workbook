@@ -22,13 +22,13 @@ P0–P2 在这份规范之前就已完成并逐 tag 验证过，不回头改造�
 | **P0** | [环境与骨架](../projects/p00-setup/README.md) | 8–12h | ✅ 已交付 |
 | **P1** | [三角形（全挖空）](../projects/p01-triangle/README.md) | 35–45h | ✅ 已交付 |
 | **P2** | [资源与场景](../projects/p02-resources/README.md) | 45–60h | ✅ 已交付 |
-| P3 | Compute Shader 专项 | 35–45h | 大纲 |
+| **P3** | [Compute Shader 专项](../projects/p03-compute/README.md) | 35–45h | 🚧 t01–t05 已交付 |
 | P4 | 延迟渲染 + PBR | 45–60h | 大纲 |
 | P5 | Render Graph | 50–70h | 大纲 |
 | P6 | Lua（语言速通 + 引擎嵌入） | 40–55h | 大纲 |
 | P7 | D3D12 概念打通（Windows-only） | 35–45h | 大纲 |
 
-P3 以后的项目在你做完 P2 并反馈格式之后再生成。
+P3 已交付 t01–t05；t06–t07 在下一批继续。
 
 ---
 
@@ -56,6 +56,8 @@ P1 的三角形顶点是硬编码在 shader 里的。P2 把真实的数据管线
 ---
 
 ## P3 — Compute Shader 专项 · 35–45h
+
+> **当前进度：t01–t05 已交付，t06–t07 仍为大纲。**
 
 **全套里判分最硬的一段。** 每一题都是 GPU 结果回读后与 CPU 参考实现逐元素比对，
 100% 确定性，不受光栅化和驱动差异影响。

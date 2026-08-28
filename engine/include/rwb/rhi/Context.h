@@ -43,6 +43,7 @@ struct DeviceFeatures {
     bool independentBlend  = false;   // P4 多附件各自不同的混合状态
     bool shaderInt64       = false;
     bool multiDrawIndirect = false;   // P3-t07 / GPU-driven 方向
+    bool fragmentStoresAndAtomics = false; // P3-t05 fragment shader 写 storage buffer
 };
 
 struct ContextConfig {
@@ -54,6 +55,14 @@ struct ContextConfig {
     // P3（纯 compute）全程用它；它也是 CI 上最省事的模式。
     bool headless         = false;
     bool enableValidation = true;
+
+    // 同步验证。开了之后 validation layer 会额外追踪「这次读取有没有被
+    // 正确的 barrier 保护」，能抓住「漏了 barrier 但在这块卡上碰巧算对了」——
+    // 那是 compute 最典型、也最难靠结果发现的错误。
+    //
+    // 默认关：P1/P2 是在它之前写的，不回头改造（docs/04-course-authoring.md §1）。
+    // P3 起全程开着，它是 compute 那几道题 L1 判分的主力。
+    bool enableSyncValidation = false;
 
     // 必须有的特性：设备不支持就直接把它淘汰掉（宁可选不出设备也不静默降级）
     DeviceFeatures           features;

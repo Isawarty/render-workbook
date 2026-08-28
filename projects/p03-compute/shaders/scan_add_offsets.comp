@@ -1,0 +1,7 @@
+#version 450
+// TODO(p03-t03): 把每块的 exclusive offset 加回对应元素。
+layout(local_size_x = 256) in;
+layout(std430, set = 0, binding = 0) buffer DataBuf { uint data[]; };
+layout(std430, set = 0, binding = 1) readonly buffer OffBuf { uint offsets[]; };
+layout(push_constant) uniform Push { uint n; } pc;
+void main() { }

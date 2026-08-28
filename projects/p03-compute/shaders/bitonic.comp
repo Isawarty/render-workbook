@@ -1,0 +1,6 @@
+#version 450
+// TODO(p03-t04): partner=i^j、方向判断、单写者 compare-and-swap。
+layout(local_size_x = 256) in;
+layout(std430, set=0, binding=0) buffer DataBuf { uint data[]; };
+layout(push_constant) uniform Push { uint n; uint k; uint j; } pc;
+void main() { }

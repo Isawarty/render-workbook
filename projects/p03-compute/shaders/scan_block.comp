@@ -1,0 +1,12 @@
+#version 450
+// TODO(p03-t03): 块内 exclusive scan，并输出 block sum。
+layout(local_size_x = 256) in;
+layout(std430, set = 0, binding = 0) readonly buffer InBuf { uint inData[]; };
+layout(std430, set = 0, binding = 1) writeonly buffer OutBuf { uint outData[]; };
+layout(std430, set = 0, binding = 2) writeonly buffer SumBuf { uint blockSums[]; };
+layout(push_constant) uniform Push { uint n; } pc;
+void main() {
+    uint gid = gl_GlobalInvocationID.x;
+    if (gid < pc.n) outData[gid] = 0u;
+    if (gl_LocalInvocationID.x == 0u) blockSums[gl_WorkGroupID.x] = 0u;
+}
