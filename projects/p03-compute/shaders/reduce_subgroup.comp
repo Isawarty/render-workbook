@@ -1,11 +1,50 @@
 #version 450
-#extension GL_KHR_shader_subgroup_basic : require
+
+// t02 —— 用 subgroup 算术做归约。
+//
+// subgroup 是硬件真正一起执行的那一小撮线程（NVIDIA 叫 warp = 32，AMD 叫 wave）。
+// subgroupAdd() 在这一撮里直接横向求和，不经过共享内存，也不需要 barrier ——
+// 因为它们本来就是同步执行的。
+//
+// 两级结构：
+//   1. 每个 subgroup 自己求和            -> subgroupAdd
+//   2. 各 subgroup 的和再汇总成组的和    -> 共享内存 + 一个线程收尾
+//
+// MoltenVK 和 lavapipe 的 subgroup 能力受限，跑不了这条路径 ——
+// 那时 host 侧会选 reduce_shared.comp。见 ComputeApp::choosePath。
+
+#extension GL_KHR_shader_subgroup_basic      : require
 #extension GL_KHR_shader_subgroup_arithmetic : require
-// TODO(p03-t02): subgroupAdd + 每个 subgroup 局部和的二级汇总。
+
 layout(local_size_x = 256) in;
-layout(std430, set = 0, binding = 0) readonly buffer InBuf { float inData[]; };
+
+layout(std430, set = 0, binding = 0) readonly  buffer InBuf  { float inData[]; };
 layout(std430, set = 0, binding = 1) writeonly buffer OutBuf { float outData[]; };
-layout(push_constant) uniform Push { uint n; } pc;
+
+layout(push_constant) uniform Push {
+    uint n;
+} pc;
+
+// 一个 workgroup 最多拆成多少个 subgroup。
+// 256 / 最小 subgroupSize；host 侧的 choosePath 拒绝 subgroupSize < 4 的设备，
+// 所以这里 64 个格子一定够。
+shared float subgroupSums[64];
+
 void main() {
-    if (gl_LocalInvocationID.x == 0u) outData[gl_WorkGroupID.x] = 0.0;
+    uint gid = gl_GlobalInvocationID.x;
+
+    float v = (gid < pc.n) ? inData[gid] : 0.0;
+
+    // 这一撮线程的和。所有线程都拿到同一个结果。
+    float s = subgroupAdd(v);
+
+    // 每个 subgroup 派一个代表去写共享内存。
+    if (subgroupElect()) subgroupSums[gl_SubgroupID] = s;
+    barrier();
+
+    if (gl_LocalInvocationID.x == 0u) {
+        float total = 0.0;
+        for (uint i = 0u; i < gl_NumSubgroups; ++i) total += subgroupSums[i];
+        outData[gl_WorkGroupID.x] = total;
+    }
 }

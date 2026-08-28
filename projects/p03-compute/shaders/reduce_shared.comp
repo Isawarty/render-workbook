@@ -1,9 +1,38 @@
 #version 450
-// TODO(p03-t02): 共享内存树形归约。骨架保持可编译，host 入口会先以 RWB_TODO 失败。
+
+// t02 —— 共享内存里的树形归约。
+//
+// 每个 workgroup 把自己那 256 个元素求和，结果写进 outData[workgroupID]。
+// host 侧反复调用它，直到只剩一个元素。
+//
+// 这条路径任何设备都能跑，是 subgroup 不可用时的降级路径 ——
+// 但它不是「备胎」：它同时也是判分的基准，两条路径必须算出同一个和。
+
 layout(local_size_x = 256) in;
-layout(std430, set = 0, binding = 0) readonly buffer InBuf { float inData[]; };
+
+layout(std430, set = 0, binding = 0) readonly  buffer InBuf  { float inData[]; };
 layout(std430, set = 0, binding = 1) writeonly buffer OutBuf { float outData[]; };
-layout(push_constant) uniform Push { uint n; } pc;
+
+layout(push_constant) uniform Push {
+    uint n;
+} pc;
+
+shared float partial[256];
+
 void main() {
-    if (gl_LocalInvocationID.x == 0u) outData[gl_WorkGroupID.x] = 0.0;
+    uint tid = gl_LocalInvocationID.x;
+    uint gid = gl_GlobalInvocationID.x;
+
+    // 越界的线程补 0：加法的单位元。让所有线程都参与后面的树形归约，
+    // 比「让越界线程提前 return」正确得多 —— barrier 要求整组一起到达。
+    partial[tid] = (gid < pc.n) ? inData[gid] : 0.0;
+    barrier();
+
+    // 每一轮活跃线程减半：256 -> 128 -> ... -> 1
+    for (uint s = gl_WorkGroupSize.x / 2u; s > 0u; s >>= 1u) {
+        if (tid < s) partial[tid] += partial[tid + s];
+        barrier();   // 必须在 if 外面：barrier 要求 workgroup 内所有线程都执行到
+    }
+
+    if (tid == 0u) outData[gl_WorkGroupID.x] = partial[0];
 }
