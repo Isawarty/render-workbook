@@ -1,12 +1,55 @@
 #version 450
-// TODO(p03-t03): 块内 exclusive scan，并输出 block sum。
+
+// t03 —— 分块 exclusive scan。
+//
+// 每个 workgroup 独立地对自己那 256 个元素做 exclusive prefix sum，
+// 同时把「整块的总和」写进 blockSums[workgroupID]。
+//
+// 这一趟做完，块内是对的，块与块之间还差一个偏移 —— 那是后两趟的事。
+//
+// 这个 shader 被用两次：
+//   第 1 趟  扫原始数据，产出块内结果 + 每块总和
+//   第 2 趟  扫「每块总和」这个数组本身，得到每块该加多少偏移
+// 所以它不能对 n 的来源做任何假设。
+
 layout(local_size_x = 256) in;
-layout(std430, set = 0, binding = 0) readonly buffer InBuf { uint inData[]; };
-layout(std430, set = 0, binding = 1) writeonly buffer OutBuf { uint outData[]; };
-layout(std430, set = 0, binding = 2) writeonly buffer SumBuf { uint blockSums[]; };
-layout(push_constant) uniform Push { uint n; } pc;
+
+layout(std430, set = 0, binding = 0) readonly  buffer InBuf   { uint inData[]; };
+layout(std430, set = 0, binding = 1) writeonly buffer OutBuf  { uint outData[]; };
+layout(std430, set = 0, binding = 2) writeonly buffer SumBuf  { uint blockSums[]; };
+
+layout(push_constant) uniform Push {
+    uint n;
+} pc;
+
+shared uint temp[256];
+
 void main() {
+    uint tid = gl_LocalInvocationID.x;
     uint gid = gl_GlobalInvocationID.x;
-    if (gid < pc.n) outData[gid] = 0u;
-    if (gl_LocalInvocationID.x == 0u) blockSums[gl_WorkGroupID.x] = 0u;
+
+    uint v = (gid < pc.n) ? inData[gid] : 0u;
+    temp[tid] = v;
+    barrier();
+
+    // Hillis-Steele inclusive scan。每轮把距离 offset 之外的值加过来。
+    //
+    // 两个 barrier 缺一不可：
+    //   第一个 —— 保证所有线程都「读完」了，才允许有人开始写；
+    //   第二个 —— 保证所有线程都「写完」了，下一轮才能开始读。
+    // 只留一个的话，快的线程会读到别人本轮刚写的新值，结果随机偏大。
+    for (uint offset = 1u; offset < gl_WorkGroupSize.x; offset <<= 1u) {
+        uint add = (tid >= offset) ? temp[tid - offset] : 0u;
+        barrier();
+        temp[tid] += add;
+        barrier();
+    }
+
+    // temp[tid] 现在是 inclusive 前缀和。减掉自己就是 exclusive。
+    uint inclusive = temp[tid];
+    if (gid < pc.n) outData[gid] = inclusive - v;
+
+    // 最后一个线程手上的 inclusive 就是整块的和。
+    // 注意：即使这一块没填满（后面补了 0），它依然是正确的块总和。
+    if (tid == gl_WorkGroupSize.x - 1u) blockSums[gl_WorkGroupID.x] = inclusive;
 }

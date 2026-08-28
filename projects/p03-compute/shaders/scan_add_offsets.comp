@@ -1,7 +1,21 @@
 #version 450
-// TODO(p03-t03): 把每块的 exclusive offset 加回对应元素。
+
+// t03 —— 第三趟：把每块的偏移加回去。
+//
+// offsets[b] = 第 b 块之前所有元素的总和（由第二趟 scan 算出）。
+// 每个线程给自己那个元素加上所属块的偏移，scan 就完整了。
+
 layout(local_size_x = 256) in;
-layout(std430, set = 0, binding = 0) buffer DataBuf { uint data[]; };
-layout(std430, set = 0, binding = 1) readonly buffer OffBuf { uint offsets[]; };
-layout(push_constant) uniform Push { uint n; } pc;
-void main() { }
+
+layout(std430, set = 0, binding = 0)          buffer DataBuf { uint data[]; };
+layout(std430, set = 0, binding = 1) readonly buffer OffBuf  { uint offsets[]; };
+
+layout(push_constant) uniform Push {
+    uint n;
+} pc;
+
+void main() {
+    uint gid = gl_GlobalInvocationID.x;
+    if (gid >= pc.n) return;
+    data[gid] += offsets[gl_WorkGroupID.x];
+}
