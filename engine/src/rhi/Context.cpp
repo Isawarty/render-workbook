@@ -134,15 +134,23 @@ void Context::createInstance() {
 
     std::vector<const char*> extensions =
         m_window ? Window::requiredInstanceExtensions() : std::vector<const char*>{};
+    bool useLayerSettings = false;
+    bool useValidationFeatures = false;
     if (m_config.enableValidation) {
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         if (m_config.enableSyncValidation) {
-            if (!hasLayerExtension(kValidationLayer, VK_EXT_LAYER_SETTINGS_EXTENSION_NAME)) {
+            useLayerSettings =
+                hasLayerExtension(kValidationLayer, VK_EXT_LAYER_SETTINGS_EXTENSION_NAME);
+            useValidationFeatures =
+                !useLayerSettings &&
+                hasLayerExtension(kValidationLayer, VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+            if (!useLayerSettings && !useValidationFeatures) {
                 throw std::runtime_error(
                     "请求了 synchronization validation，但 validation layer 不支持 "
-                    "VK_EXT_layer_settings；请更新 Vulkan SDK。");
+                    "VK_EXT_layer_settings 或 VK_EXT_validation_features；请更新 Vulkan SDK。");
             }
-            extensions.push_back(VK_EXT_LAYER_SETTINGS_EXTENSION_NAME);
+            extensions.push_back(useLayerSettings ? VK_EXT_LAYER_SETTINGS_EXTENSION_NAME
+                                                  : VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
         }
     }
 
@@ -163,8 +171,8 @@ void Context::createInstance() {
 
     VkDebugUtilsMessengerCreateInfoEXT debugInfo = makeDebugMessengerInfo();
 
-    // 现代 validation layer 用 VK_EXT_layer_settings；旧的
-    // VkValidationFeaturesEXT/enables 已弃用，而且新版 layer 可能直接忽略它。
+    // 新 layer 优先用 VK_EXT_layer_settings；Ubuntu LTS 等仍可能只提供旧的
+    // VK_EXT_validation_features。两条路径都真正开启 sync validation，不能静默降级。
     const VkBool32 enableSync = VK_TRUE;
     VkLayerSettingEXT syncSetting{};
     syncSetting.pLayerName   = kValidationLayer;
@@ -178,13 +186,23 @@ void Context::createInstance() {
     layerSettings.settingCount = 1;
     layerSettings.pSettings    = &syncSetting;
 
+    const VkValidationFeatureEnableEXT syncFeature =
+        VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT;
+    VkValidationFeaturesEXT validationFeatures{};
+    validationFeatures.sType                         = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+    validationFeatures.enabledValidationFeatureCount = 1;
+    validationFeatures.pEnabledValidationFeatures    = &syncFeature;
+
     if (m_config.enableValidation) {
         createInfo.enabledLayerCount   = 1;
         createInfo.ppEnabledLayerNames = &kValidationLayer;
         // 两个结构都挂在 instance 的 pNext 链上。
-        if (m_config.enableSyncValidation) {
+        if (useLayerSettings) {
             layerSettings.pNext = &debugInfo;
             createInfo.pNext = &layerSettings;
+        } else if (useValidationFeatures) {
+            validationFeatures.pNext = &debugInfo;
+            createInfo.pNext = &validationFeatures;
         } else {
             createInfo.pNext = &debugInfo;             // 覆盖 create/destroy instance 本身
         }
