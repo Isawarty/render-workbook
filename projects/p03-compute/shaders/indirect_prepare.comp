@@ -1,3 +1,15 @@
 #version 450
+
 layout(local_size_x = 1) in;
-void main() { }
+layout(std430, set=0, binding=0) writeonly buffer CommandBuffer {
+    uint groupCountX;
+    uint groupCountY;
+    uint groupCountZ;
+} command;
+layout(push_constant) uniform Push { uint n; } pc;
+
+void main() {
+    command.groupCountX = (pc.n + 255u) / 256u;
+    command.groupCountY = 1u;
+    command.groupCountZ = 1u;
+}
