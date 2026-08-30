@@ -3,9 +3,7 @@
 目标平台：Apple Silicon (M 系列)。Vulkan 在 macOS 上通过 **MoltenVK**
 （Vulkan → Metal 的转译层）运行。
 
-> **未在真机验证。** 本文档基于 MoltenVK 的已知行为编写；
-> 你在 MacBook 上首次跑通后，请把实际遇到的差异补充进
-> [03-troubleshooting.md](03-troubleshooting.md)。
+> 已在 Apple M4 + Vulkan SDK 1.4.341.1 + MoltenVK 上验证 P0–P4 的本地构建与测试。
 
 ## 1. 命令行工具
 
@@ -33,12 +31,14 @@ macOS 没有系统级 Vulkan loader，SDK 提供的 MoltenVK 就是唯一的实�
 
 - **System Global Installation**（把 loader 和 ICD 装到系统路径）
 - **Vulkan Validation Layers**
+- **Slang compiler**（P4-t07 使用 `slangc`）
 
 装完后新开一个终端，确认：
 
 ```bash
 echo $VULKAN_SDK
 vulkaninfo | head -20
+slangc -version
 ```
 
 如果 `vulkaninfo` 找不到设备，通常是 `VK_ICD_FILENAMES` 没设。SDK 的

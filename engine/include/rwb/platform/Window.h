@@ -25,7 +25,8 @@ namespace rwb {
 // 刻意不做成挖空题：窗口系统不是这门课的教学点，Vulkan 才是。
 class Window {
 public:
-    Window(std::uint32_t width, std::uint32_t height, const std::string& title);
+    Window(std::uint32_t width, std::uint32_t height, const std::string& title,
+           bool highDpiFramebuffer = true, bool visible = true);
     ~Window();
 
     Window(const Window&)            = delete;

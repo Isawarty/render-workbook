@@ -23,7 +23,7 @@ P0–P2 在这份规范之前就已完成并逐 tag 验证过，不回头改造�
 | **P1** | [三角形（全挖空）](../projects/p01-triangle/README.md) | 35–45h | ✅ 已交付 |
 | **P2** | [资源与场景](../projects/p02-resources/README.md) | 45–60h | ✅ 已交付 |
 | **P3** | [Compute Shader 专项](../projects/p03-compute/README.md) | 35–45h | ✅ 已交付 |
-| P4 | 延迟渲染 + PBR | 45–60h | 大纲 |
+| **P4** | [延迟渲染 + PBR](../projects/p04-deferred/README.md) | 45–60h | 🚧 t01–t07 本地实现完成，待发布 |
 | P5 | Render Graph | 50–70h | 大纲 |
 | P6 | Lua（语言速通 + 引擎嵌入） | 40–55h | 大纲 |
 | P7 | D3D12 概念打通（Windows-only） | 35–45h | 大纲 |
@@ -78,13 +78,13 @@ P1 的三角形顶点是硬编码在 shader 里的。P2 把真实的数据管线
 
 | task | 内容 |
 |---|---|
-| t01 | 多附件 G-Buffer |
-| t02 | 几何 pass |
-| t03 | 光照 pass（Cook-Torrance） |
-| t04 | IBL：irradiance / prefiltered / BRDF LUT（**用 P3 的 compute 能力生成**） |
-| t05 | shadow map + PCF |
-| t06 | 后处理链（bloom 走 compute，tonemap） |
-| t07 | **全部 shader 从 GLSL 迁移到 Slang** |
+| t01 | 多附件 G-Buffer（✅ 本地实现） |
+| t02 | 几何 pass（✅ 本地实现） |
+| t03 | 光照 pass（Cook-Torrance，✅ 本地实现） |
+| t04 | IBL：irradiance / prefiltered / BRDF LUT（✅ compute 生成） |
+| t05 | 固定光源 shadow map + 世界坐标重建 + PCF（✅ 本地实现） |
+| t06 | 后处理链（✅ compute bloom + tonemap） |
+| t07 | **全部 shader 从 GLSL 迁移到 Slang**（✅ 本地实现） |
 
 t07 是 shader 语言的分水岭。Slang 一份源码同时产出 SPIR-V / DXIL / Metal，
 正好覆盖 Vulkan + D3D12 两条线；而且它的语法基本是 HLSL 超集，工业界价值不丢。

@@ -1,0 +1,22 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(rgba16f, set = 0, binding = 0) readonly uniform image2D hdrImage;
+layout(rgba16f, set = 0, binding = 1) writeonly uniform image2D bloomImage;
+layout(push_constant) uniform BloomPush { ivec2 size; } pushData;
+void main() {
+    ivec2 size = pushData.size;
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(pixel, size))) return;
+    const float weights[3] = float[3](0.227027, 0.1945946, 0.1216216);
+    vec3 sum = vec3(0.0);
+    for (int y = -2; y <= 2; ++y) {
+        for (int x = -2; x <= 2; ++x) {
+            ivec2 p = clamp(pixel + ivec2(x, y), ivec2(0), size - 1);
+            vec3 c = imageLoad(hdrImage, p).rgb;
+            float luminance = dot(c, vec3(0.2126, 0.7152, 0.0722));
+            c *= smoothstep(0.35, 0.9, luminance);
+            sum += c * weights[abs(x)] * weights[abs(y)];
+        }
+    }
+    imageStore(bloomImage, pixel, vec4(sum, 1.0));
+}

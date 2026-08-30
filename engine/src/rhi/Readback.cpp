@@ -72,6 +72,7 @@ void imageBarrier(VkCommandBuffer cmd, VkImage image,
 CapturedImage readbackImage(const Context& ctx, VkImage image, VkFormat format,
                             std::uint32_t width, std::uint32_t height,
                             VkImageLayout currentLayout) {
+    ctx.waitIdle();
     const VkDeviceSize size = static_cast<VkDeviceSize>(width) * height * 4;
     StagingBuffer staging(ctx, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
@@ -99,6 +100,7 @@ CapturedImage readbackImage(const Context& ctx, VkImage image, VkFormat format,
                      VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
     });
 
+    VK_CHECK(vmaInvalidateAllocation(ctx.allocator(), staging.allocation, 0, size));
     CapturedImage out;
     out.width  = width;
     out.height = height;
@@ -119,6 +121,7 @@ CapturedImage readbackImage(const Context& ctx, VkImage image, VkFormat format,
 
 std::vector<std::uint8_t> readbackBuffer(const Context& ctx, VkBuffer buffer, VkDeviceSize size) {
     if (size == 0) return {};
+    ctx.waitIdle();
     StagingBuffer staging(ctx, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
     ctx.immediateSubmit([&](VkCommandBuffer cmd) {
@@ -136,6 +139,7 @@ std::vector<std::uint8_t> readbackBuffer(const Context& ctx, VkBuffer buffer, Vk
                              0, 1, &barrier, 0, nullptr, 0, nullptr);
     });
 
+    VK_CHECK(vmaInvalidateAllocation(ctx.allocator(), staging.allocation, 0, size));
     std::vector<std::uint8_t> out(static_cast<std::size_t>(size));
     std::memcpy(out.data(), staging.mapped, out.size());
     return out;

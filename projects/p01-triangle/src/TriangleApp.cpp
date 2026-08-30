@@ -14,7 +14,8 @@ TriangleApp::TriangleApp(AppConfig config) : m_config(config) {
             "volkInitialize 失败：找不到 Vulkan loader。先跑 p00_setup 检查环境。");
     }
     if (!m_config.headless) {
-        m_window = std::make_unique<Window>(m_config.width, m_config.height, m_config.title);
+        m_window = std::make_unique<Window>(m_config.width, m_config.height, m_config.title,
+                                            m_config.highDpiFramebuffer);
     }
 }
 

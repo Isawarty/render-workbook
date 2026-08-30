@@ -48,6 +48,7 @@ struct AppConfig {
     std::uint32_t height          = 600;
     bool          enableValidation = true;
     bool          headless        = false;   // 不创建窗口时用于纯 instance/device 测试
+    bool          highDpiFramebuffer = true;
     std::string   title           = "render-workbook P01 triangle";
 };
 

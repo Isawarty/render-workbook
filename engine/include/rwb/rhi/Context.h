@@ -45,6 +45,8 @@ struct DeviceFeatures {
     bool multiDrawIndirect = false;   // P3-t07 / GPU-driven 方向
     bool fragmentStoresAndAtomics = false; // P3-t05 fragment shader 写 storage buffer
     bool vertexPipelineStoresAndAtomics = false; // P3-t06 vertex shader 写回读 buffer
+    bool shaderDrawParameters = false; // Slang 的 SV_VertexID 会使用 BaseVertex
+    bool shaderStorageImageReadWithoutFormat = false; // Slang input attachment SPIR-V capability
 };
 
 struct ContextConfig {
@@ -56,6 +58,9 @@ struct ContextConfig {
     // P3（纯 compute）全程用它；它也是 CI 上最省事的模式。
     bool headless         = false;
     bool enableValidation = true;
+    // macOS 默认让 framebuffer 使用 Retina 像素；固定尺寸的回读测试会关闭它。
+    bool highDpiFramebuffer = true;
+    bool windowVisible = true;
 
     // 同步验证。开了之后 validation layer 会额外追踪「这次读取有没有被
     // 正确的 barrier 保护」，能抓住「漏了 barrier 但在这块卡上碰巧算对了」——

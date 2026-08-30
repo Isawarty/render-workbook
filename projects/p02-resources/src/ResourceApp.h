@@ -107,6 +107,7 @@ struct AppConfig {
     std::uint32_t width            = 800;
     std::uint32_t height           = 600;
     bool          enableValidation = true;
+    bool          highDpiFramebuffer = true;
     std::string   title            = "render-workbook P02 resources";
 };
 

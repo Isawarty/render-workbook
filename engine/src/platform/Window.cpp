@@ -28,7 +28,8 @@ void releaseGlfw() {
 
 } // namespace
 
-Window::Window(std::uint32_t width, std::uint32_t height, const std::string& title) {
+Window::Window(std::uint32_t width, std::uint32_t height, const std::string& title,
+               bool highDpiFramebuffer, bool visible) {
     ensureGlfwInitialised();
 
     if (!glfwVulkanSupported()) {
@@ -41,6 +42,14 @@ Window::Window(std::uint32_t width, std::uint32_t height, const std::string& tit
 
     // 不要 OpenGL context —— 这是 Vulkan 程序
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_VISIBLE, visible ? GLFW_TRUE : GLFW_FALSE);
+#ifdef __APPLE__
+    // 正常应用保留 Retina；golden/readback 测试可关闭它，让配置尺寸就是像素尺寸。
+    // 每次都显式设置，因为 GLFW window hints 会持续影响后续创建的窗口。
+    glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, highDpiFramebuffer ? GLFW_TRUE : GLFW_FALSE);
+#else
+    (void)highDpiFramebuffer;
+#endif
 
     m_window = glfwCreateWindow(static_cast<int>(width), static_cast<int>(height),
                                 title.c_str(), nullptr, nullptr);

@@ -94,7 +94,9 @@ Context::Context(ContextConfig config) : m_config(std::move(config)) {
             "volkInitialize 失败: 找不到 Vulkan loader。先跑 p00_setup 检查环境。");
     }
     if (!m_config.headless) {
-        m_window = std::make_unique<Window>(m_config.width, m_config.height, m_config.title);
+        m_window = std::make_unique<Window>(m_config.width, m_config.height, m_config.title,
+                                            m_config.highDpiFramebuffer,
+                                            m_config.windowVisible);
     }
 
     try {
@@ -290,6 +292,17 @@ bool Context::deviceSuitable(VkPhysicalDevice device) const {
     if (want.multiDrawIndirect && !have.multiDrawIndirect) return false;
     if (want.fragmentStoresAndAtomics && !have.fragmentStoresAndAtomics) return false;
     if (want.vertexPipelineStoresAndAtomics && !have.vertexPipelineStoresAndAtomics) return false;
+    if (want.shaderStorageImageReadWithoutFormat &&
+        !have.shaderStorageImageReadWithoutFormat) return false;
+    if (want.shaderDrawParameters) {
+        VkPhysicalDeviceVulkan11Features have11{};
+        have11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+        VkPhysicalDeviceFeatures2 have2{};
+        have2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        have2.pNext = &have11;
+        vkGetPhysicalDeviceFeatures2(device, &have2);
+        if (!have11.shaderDrawParameters) return false;
+    }
 
     return true;
 }
@@ -374,6 +387,8 @@ void Context::createLogicalDevice() {
     features.fragmentStoresAndAtomics = want.fragmentStoresAndAtomics ? VK_TRUE : VK_FALSE;
     features.vertexPipelineStoresAndAtomics =
         want.vertexPipelineStoresAndAtomics ? VK_TRUE : VK_FALSE;
+    features.shaderStorageImageReadWithoutFormat =
+        want.shaderStorageImageReadWithoutFormat ? VK_TRUE : VK_FALSE;
 
     // 可选的：设备支持才开。调用方必须查 enabledFeatures() 才能用。
     const DeviceFeatures& opt = m_config.optionalFeatures;
@@ -389,8 +404,24 @@ void Context::createLogicalDevice() {
     if (opt.vertexPipelineStoresAndAtomics && have.vertexPipelineStoresAndAtomics) {
         features.vertexPipelineStoresAndAtomics = VK_TRUE;
     }
+    if (opt.shaderStorageImageReadWithoutFormat &&
+        have.shaderStorageImageReadWithoutFormat) {
+        features.shaderStorageImageReadWithoutFormat = VK_TRUE;
+    }
 
     m_enabledFeatures = features;
+
+    VkPhysicalDeviceVulkan11Features features11{};
+    features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    if (want.shaderDrawParameters || opt.shaderDrawParameters) {
+        VkPhysicalDeviceVulkan11Features have11{};
+        have11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+        VkPhysicalDeviceFeatures2 have2{};
+        have2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        have2.pNext = &have11;
+        vkGetPhysicalDeviceFeatures2(m_physicalDevice, &have2);
+        features11.shaderDrawParameters = have11.shaderDrawParameters;
+    }
 
     std::vector<const char*> extensions = requiredDeviceExtensions();
     if (hasDeviceExtension(m_physicalDevice, "VK_KHR_portability_subset")) {
@@ -403,6 +434,7 @@ void Context::createLogicalDevice() {
     createInfo.queueCreateInfoCount    = static_cast<std::uint32_t>(queueInfos.size());
     createInfo.pQueueCreateInfos       = queueInfos.data();
     createInfo.pEnabledFeatures        = &features;
+    createInfo.pNext                   = features11.shaderDrawParameters ? &features11 : nullptr;
     createInfo.enabledExtensionCount   = static_cast<std::uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
 

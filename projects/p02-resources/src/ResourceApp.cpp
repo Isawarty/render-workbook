@@ -64,6 +64,7 @@ ResourceApp::ResourceApp(AppConfig config) : m_config(config) {
     cc.height           = config.height;
     cc.title            = config.title;
     cc.enableValidation = config.enableValidation;
+    cc.highDpiFramebuffer = config.highDpiFramebuffer;
     // 「可选」而不是「必须」：lavapipe 这类软件渲染器可能没有各向异性过滤，
     // 但 CI 跑不了不该等于这门课不能教它。t05 的采样器代码要自己查有没有开成。
     cc.optionalFeatures.samplerAnisotropy = true;

@@ -45,7 +45,7 @@ fail its tests legibly. If you cannot compile, you cannot even start the task.
 | P1 | Triangle from scratch — 9 tasks, nothing pre-written | 35–45 | Shipped |
 | P2 | Resources & scene (VMA, descriptors, textures, glTF, MSAA) | 45–60 | Shipped |
 | P3 | Compute shaders (reduction, scan, bitonic sort, particles) | 35–45 | Shipped |
-| P4 | Deferred rendering + PBR + IBL, migration to Slang | 45–60 | Outlined |
+| P4 | Deferred rendering + PBR + IBL, light-space shadows, migration to Slang | 45–60 | t01–t07 implemented locally; release tags pending |
 | P5 | Render graph with automatic barrier derivation | 50–70 | Outlined |
 | P6 | Lua: language, then embedding as the engine's scripting layer | 40–55 | Outlined |
 | P7 | D3D12 concept walkthrough (Windows only) | 35–45 | Outlined |
@@ -85,9 +85,10 @@ are deliberately visible:
 Use `python rwb.py --dry-run test p01-t03` to print those commands without
 executing them, or `python rwb.py --help` for all actions.
 
-Every dependency is fetched by CMake and pinned by SHA256 — GLFW, glm,
-Vulkan-Headers, volk, glslang, Catch2, stb. **The Vulkan SDK is not required to
-compile**, only to run the L1 tests (it supplies the validation layer).
+Most dependencies are fetched by CMake and pinned by SHA256 — GLFW, glm,
+Vulkan-Headers, volk, glslang, Catch2, stb. P0–P3 compile without an SDK;
+P4-t07 additionally requires `slangc` from a Vulkan SDK. Running L1 tests also
+requires the SDK's validation layer.
 
 Setup details: [Windows](docs/01-setup-windows.md) · [macOS](docs/01-setup-macos.md)
 

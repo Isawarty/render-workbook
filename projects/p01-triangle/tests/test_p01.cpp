@@ -27,6 +27,7 @@ AppConfig testConfig() {
     AppConfig c;
     c.width  = 320;    // 小一点，golden 图存起来便宜，跑起来也快
     c.height = 240;
+    c.highDpiFramebuffer = false; // Retina 上也保持 320x240 像素，和跨平台基准一致
     c.title  = "render-workbook p01 test";
     return c;
 }

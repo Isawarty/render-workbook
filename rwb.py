@@ -44,6 +44,9 @@ PROJECTS = {
     "p03": Project(test_target="p03_tests", app_target="p03_compute",
                    executable_dir=Path("projects/p03-compute"),
                    tasks=7, stages=7),
+    "p04": Project(test_target="p04_tests", app_target="p04_deferred",
+                   executable_dir=Path("projects/p04-deferred"),
+                   tasks=7, accepts_frames=True, stages=7),
 }
 
 SYSTEM_PRESETS = {
@@ -281,9 +284,9 @@ def make_parser() -> argparse.ArgumentParser:
     run_parser = commands.add_parser("run", help="build and run a project application")
     run_parser.add_argument("project", choices=tuple(PROJECTS), nargs="?", default="p01")
     run_parser.add_argument("--frames", type=positive_int,
-                            help="p01 only: exit after this many frames")
+                            help="exit after this many frames (supported by p01 and p04)")
     run_parser.add_argument("--stage", type=positive_int, metavar="N",
-                            help="p02 only: initialise up to stage N (1-8) instead of the last one")
+                            help="p02/p04: initialise up to stage N instead of the last one")
     return parser
 
 
@@ -291,7 +294,7 @@ def doctor(preset: str, *, dry_run: bool) -> None:
     print(f"host:    {platform.system()} / {platform.machine()}")
     print(f"preset:  {preset}")
     print(f"{'python:':8} {sys.executable}")
-    for tool in ("cmake", "ctest", "ninja"):
+    for tool in ("cmake", "ctest", "ninja", "slangc"):
         print(f"{tool + ':':8} {find_tool(tool) or 'NOT FOUND'}")
     if preset == "win-msvc":
         print(f"{'cl:':8} {shutil.which('cl') or 'NOT FOUND (open an MSVC tools terminal)'}")

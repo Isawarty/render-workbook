@@ -27,6 +27,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: 安装 Slang 2026.14
+        run: python3 .github/scripts/install_slang.py
+
       - name: 安装 lavapipe、validation layer 与 X11 依赖
         run: |
           sudo apt-get update
@@ -81,6 +84,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
       - uses: lukka/get-cmake@latest
+      - name: 安装 Slang 2026.14
+        run: python .github/scripts/install_slang.py
       - run: cmake --preset win-msvc
       - run: cmake --build build/win-msvc
 
@@ -91,6 +96,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: lukka/get-cmake@latest
       - run: brew install ninja
+      - name: 安装 Slang 2026.14
+        run: python3 .github/scripts/install_slang.py
       - run: cmake --preset mac-arm64
       - run: cmake --build build/mac-arm64
 
@@ -117,6 +124,9 @@ jobs:
             libwayland-dev
 
       - uses: lukka/get-cmake@latest
+
+      - name: 安装 Slang 2026.14
+        run: python3 .github/scripts/install_slang.py
 
       - name: 逐个 start tag 编译
         run: |
