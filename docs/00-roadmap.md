@@ -23,12 +23,12 @@ P0–P2 在这份规范之前就已完成并逐 tag 验证过，不回头改造�
 | **P1** | [三角形（全挖空）](../projects/p01-triangle/README.md) | 35–45h | ✅ 已交付 |
 | **P2** | [资源与场景](../projects/p02-resources/README.md) | 45–60h | ✅ 已交付 |
 | **P3** | [Compute Shader 专项](../projects/p03-compute/README.md) | 35–45h | ✅ 已交付 |
-| **P4** | [延迟渲染 + PBR](../projects/p04-deferred/README.md) | 45–60h | 🚧 t01–t07 本地实现完成，待发布 |
+| **P4** | [延迟渲染 + PBR](../projects/p04-deferred/README.md) | 45–60h | ✅ 已交付 |
 | P5 | Render Graph | 50–70h | 大纲 |
 | P6 | Lua（语言速通 + 引擎嵌入） | 40–55h | 大纲 |
 | P7 | D3D12 概念打通（Windows-only） | 35–45h | 大纲 |
 
-P3 已完整交付 t01–t07。
+P3、P4 已完整交付 t01–t07。
 
 ---
 

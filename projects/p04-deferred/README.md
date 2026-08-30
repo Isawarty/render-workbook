@@ -4,7 +4,7 @@ P4 把前面分散学过的 image、render pass、descriptor、compute 与同步
 延迟渲染管线。P5 才会把它抽象成通用 Render Graph；P4 内部先保留清楚、具体的 G-buffer
 所有权和生命周期，避免在理解数据流之前先藏进框架。
 
-当前 t01–t07 的参考实现和本地判分已完成；`start/done` tag 尚待课程维护者授权后发布：
+t01–t07 已完整交付，包含全套骨架（`start/*`）与参考实现（`done/*`）标签：
 
 | task | 内容 | 判分 |
 |---|---|---|
@@ -50,7 +50,7 @@ python3 rwb.py run p04 --stage 7
 七题都不依赖 golden image，因此缺少基准不会静默 SKIP。判分组合 GPU raw readback、CPU
 语义断言、阶段间对照与 validation error/warning=0；具体标准见 `docs/tNN-*.md`。
 
-正式发布 tag 后，学习者可按仓库工作流保存自己的实现：`mine/p04-t01`，并主动比较
+学习者可按仓库工作流保存自己的实现：`mine/p04-t01`，并主动比较
 `done/p04-t01`：
 
 ```bash
