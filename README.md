@@ -48,7 +48,7 @@ fail its tests legibly. If you cannot compile, you cannot even start the task.
 | P4 | Deferred rendering + PBR + IBL, light-space shadows, migration to Slang | 45–60 | Shipped |
 | P5 | Render graph: DAG scheduling, automatic barriers, transient aliasing, P4 migration, ImGui/DOT visualization | 50–70 | Shipped |
 | P6 | Lua: language, embedding, scene/graph scripts, sandbox and hot reload | 40–55 | Shipped |
-| P7 | D3D12 concept walkthrough (Windows only) | 35–45 | Outlined |
+| P7 | D3D12 concept walkthrough (Windows only) | 35–45 | Skeleton ready |
 
 Roughly 300–390 hours end to end.
 

@@ -31,6 +31,8 @@ class Project:
     # The application takes a positional stage number 1..stages.
     stages: int = 0
     first_task: int = 1
+    # D3D12 projects must not turn a non-Windows configure into a missing-target error.
+    windows_only: bool = False
 
 
 PROJECTS = {
@@ -52,6 +54,9 @@ PROJECTS = {
                    executable_dir=Path("projects/p05-render-graph"),
                    tasks=6, accepts_frames=True),
     "p06": Project(test_target="p06_tests", tasks=5, first_task=0),
+    "p07": Project(test_target="p07_tests", app_target="p07_d3d12",
+                   executable_dir=Path("projects/p07-d3d12"),
+                   tasks=7, stages=6, windows_only=True),
 }
 
 SYSTEM_PRESETS = {
@@ -143,6 +148,12 @@ def configure(preset: str, *, reconfigure: bool, dry_run: bool) -> None:
 def build(project_name: str, preset: str, *, reconfigure: bool, dry_run: bool,
           app: bool = False) -> None:
     project = PROJECTS[project_name]
+    if project.windows_only and preset != "win-msvc":
+        raise UserError(
+            f"{project_name} is Windows-only (Direct3D 12/WARP). "
+            "Use a Windows host in an MSVC x64 tools terminal; "
+            f"the current preset is {preset}."
+        )
     configure(preset, reconfigure=reconfigure, dry_run=dry_run)
     target = project.app_target if app else project.test_target
     if target is None:

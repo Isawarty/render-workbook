@@ -39,10 +39,11 @@ python -m pip install cmake ninja
 
 需要 CMake ≥ 3.24（FetchContent 的 `URL_HASH` 行为在 3.24 才稳定）。
 
-## 3. Vulkan SDK
+## 3. Vulkan SDK 与 Slang
 
-只为 **validation layer** 而装 —— 编译本身不需要它（headers/volk/glslang
-都走 FetchContent）。但 L1 判分整层建立在 validation layer 上。
+Vulkan 部分只为 **validation layer** 而装 —— 编译本身不需要它（headers/volk/glslang
+都走 FetchContent）。但 L1 判分整层建立在 validation layer 上。P4-t07 与 P7-t06 还需要
+`slangc`；安装 Vulkan SDK 时保留 Slang 组件，或使用 Slang 官方独立发行包。
 
 ```powershell
 winget install --id KhronosGroup.VulkanSDK --exact --source winget
@@ -51,7 +52,17 @@ winget install --id KhronosGroup.VulkanSDK --exact --source winget
 `--source winget` 不能省：如果你的机器上有第三方 winget 源，
 不指定源会因包名歧义而失败。
 
-## 4. 构建
+```powershell
+slangc -version
+```
+
+## 4. P7 的 D3D12/WARP 组件
+
+「使用 C++ 的桌面开发」工作负载中的 Windows SDK 提供 D3D12 headers 与 import libraries。
+P7 使用的 **WARP software adapter** 和 D3D12 debug layer 属于 Windows 的 **Graphics Tools**
+可选功能；在“系统 → 可选功能”中安装它。P7 不需要独立显卡，也不会退回硬件 adapter 判分。
+
+## 5. 构建
 
 ```powershell
 python rwb.py doctor
