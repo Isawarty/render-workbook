@@ -1,6 +1,7 @@
 #include "D3D12App.h"
 
 #include <sstream>
+#include <stdexcept>
 #include <vector>
 
 namespace p07 {
@@ -33,9 +34,61 @@ void D3D12App::runFrames(uint32_t frameCount) {
             DispatchMessageW(&message);
         }
 
-        // t01 只建立窗口与 swapchain；没有 fence 前不提交/Present 后立刻销毁资源。
-        // t03 会在补齐 barrier 与 fence timeline 后扩展这里的真正帧循环。
+        // t01/t02 只建立对象；t03 创建 fence 后才开启安全的提交与 present。
+        if (!m_fence) continue;
+
+        const uint32_t frameIndex = m_swapchain->GetCurrentBackBufferIndex();
+        waitForFence(m_frameFenceValues[frameIndex]);
+
+        const HRESULT allocatorResult = m_allocators[frameIndex]->Reset();
+        if (FAILED(allocatorResult)) {
+            throw std::runtime_error("ID3D12CommandAllocator::Reset failed");
+        }
+        const HRESULT listResult =
+            m_commandList->Reset(m_allocators[frameIndex].Get(), m_graphicsPso.Get());
+        if (FAILED(listResult)) {
+            throw std::runtime_error("ID3D12GraphicsCommandList::Reset failed");
+        }
+
+        D3D12_RESOURCE_BARRIER begin{};
+        begin.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        begin.Transition.pResource = m_backBuffers[frameIndex].Get();
+        begin.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        begin.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+        begin.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        m_commandList->ResourceBarrier(1, &begin);
+        m_beginBarrier = {begin.Transition.StateBefore, begin.Transition.StateAfter};
+
+        const uint32_t descriptorSize =
+            m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+        D3D12_CPU_DESCRIPTOR_HANDLE rtv = m_rtvHeap->GetCPUDescriptorHandleForHeapStart();
+        rtv.ptr += static_cast<SIZE_T>(frameIndex) * descriptorSize;
+        constexpr float clearColor[] = {0.04f, 0.06f, 0.10f, 1.0f};
+        m_commandList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
+        m_commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
+
+        D3D12_RESOURCE_BARRIER end = begin;
+        end.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        end.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+        m_commandList->ResourceBarrier(1, &end);
+        m_endBarrier = {end.Transition.StateBefore, end.Transition.StateAfter};
+
+        if (FAILED(m_commandList->Close())) {
+            throw std::runtime_error("ID3D12GraphicsCommandList::Close failed");
+        }
+        ID3D12CommandList* lists[] = {m_commandList.Get()};
+        m_queue->ExecuteCommandLists(1, lists);
+        if (FAILED(m_swapchain->Present(0, 0))) {
+            throw std::runtime_error("IDXGISwapChain::Present failed");
+        }
+
+        const uint64_t fenceValue = m_nextFenceValue++;
+        if (FAILED(m_queue->Signal(m_fence.Get(), fenceValue))) {
+            throw std::runtime_error("ID3D12CommandQueue::Signal failed");
+        }
+        m_frameFenceValues[frameIndex] = fenceValue;
     }
+    if (m_fence) waitForGpu();
     updateInfoQueueStatus();
 }
 

@@ -87,6 +87,7 @@ private:
     void createTexturedCube();
     void createComputePipeline();
     void waitForGpu();
+    void waitForFence(uint64_t value);
     void updateInfoQueueStatus();
 
     StateSummary m_summary;
@@ -95,6 +96,7 @@ private:
     HWND m_window = nullptr;
     HANDLE m_fenceEvent = nullptr;
     uint64_t m_nextFenceValue = 1;
+    std::array<uint64_t, 2> m_frameFenceValues{};
 
     Microsoft::WRL::ComPtr<IDXGIFactory6> m_factory;
     Microsoft::WRL::ComPtr<IDXGIAdapter1> m_adapter;

@@ -64,6 +64,7 @@ TEST_CASE("t03 transition and fence expose the required ordering", "[t03]") {
     REQUIRE(app.beginBarrier().after == D3D12_RESOURCE_STATE_RENDER_TARGET);
     REQUIRE(app.endBarrier().before == D3D12_RESOURCE_STATE_RENDER_TARGET);
     REQUIRE(app.endBarrier().after == D3D12_RESOURCE_STATE_PRESENT);
+    INFO(app.summary().infoQueueErrors);
     REQUIRE(app.summary().infoQueueClean);
 }
 
