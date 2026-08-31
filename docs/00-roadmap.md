@@ -26,10 +26,9 @@ P0–P2 在这份规范之前就已完成并逐 tag 验证过，不回头改造�
 | **P4** | [延迟渲染 + PBR](../projects/p04-deferred/README.md) | 45–60h | ✅ 已交付 |
 | **P5** | [Render Graph](../projects/p05-render-graph/README.md) | 50–70h | ✅ 已交付 |
 | **P6** | [Lua（语言速通 + 引擎嵌入）](../projects/p06-lua/README.md) | 40–55h | ✅ 已交付 |
-| **P7** | [D3D12 概念打通（Windows-only）](../projects/p07-d3d12/README.md) | 35–45h | 🏗️ 骨架已搭建 |
+| **P7** | [D3D12 概念打通（Windows-only）](../projects/p07-d3d12/README.md) | 35–45h | ✅ 已交付 |
 
-P3、P4 已完整交付 t01–t07；P5 已完整交付 t01–t06；P6 已完整交付 t00–t05；
-P7 的 Windows-only 课程骨架与 t01–t07 任务书已搭建，参考实现尚未交付。
+P3、P4、P7 已完整交付 t01–t07；P5 已完整交付 t01–t06；P6 已完整交付 t00–t05。
 
 ---
 

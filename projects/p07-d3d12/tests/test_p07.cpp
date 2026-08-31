@@ -140,7 +140,8 @@ TEST_CASE("t07 comparison covers ownership binding barriers and synchronization"
     for (const std::string concept : {
              "VkDevice", "ID3D12Device", "VkQueue", "ID3D12CommandQueue",
              "VkDescriptorSet", "Descriptor Table", "vkCmdPipelineBarrier2",
-             "ResourceBarrier", "VkFence", "ID3D12Fence", "WARP"}) {
+             "ResourceBarrier", "UAV barrier", "VkFence", "timeline semaphore",
+             "ID3D12Fence", "allocator", "shader-visible", "PRESENT", "WARP"}) {
         INFO("missing concept: " << concept);
         REQUIRE(text.find(concept) != std::string::npos);
     }

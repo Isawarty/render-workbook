@@ -302,7 +302,7 @@ def make_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--frames", type=positive_int,
                             help="exit after this many frames (supported by p01, p04, and p05)")
     run_parser.add_argument("--stage", type=positive_int, metavar="N",
-                            help="p02/p04: initialise up to stage N instead of the last one")
+                            help="p02/p04/p07: initialise up to stage N instead of the last one")
     return parser
 
 

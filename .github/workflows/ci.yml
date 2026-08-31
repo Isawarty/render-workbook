@@ -74,14 +74,15 @@ jobs:
           path: build/ci-lavapipe/tests/output/
 
   # ---------------------------------------------------------------------
-  # Windows / macOS 只做编译检查。
-  # 它们的 GPU 结果无法和基准图严格比对, 跑 L3 只会得到假红。
+  # macOS 只做编译检查；Windows 额外用 WARP 执行 P07 的确定性验收。
+  # 两者的硬件 GPU 结果无法和 lavapipe 基准图严格比对, 跑 L3 只会得到假红。
   # ---------------------------------------------------------------------
   build-windows:
     name: Windows / MSVC
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: ilammy/msvc-dev-cmd@v1
       - uses: lukka/get-cmake@latest
       - name: 安装 Slang 2026.14
@@ -89,9 +90,46 @@ jobs:
       - run: cmake --preset win-msvc
       - run: cmake --build build/win-msvc
       # P07 是 Windows-only；Linux/macOS 不可能替它执行 WARP 验收。
-      # 随 P07 逐题交付扩展这里的正则，不能只把“编译通过”当成课程测试通过。
-      - name: Test P07-t01 on WARP
-        run: ctest --preset win-msvc -R '^p07-t01$'
+      - name: Test P07 on WARP
+        run: ctest --preset win-msvc -L '^p07$'
+
+      # 最终 HEAD 全绿不代表中间教学快照可领取。逐个重放 P07 task 提交，
+      # 验证 done/tNN 上前 N 题全绿，随后才允许创建 start/done tags。
+      - name: Verify P07 task history on WARP
+        shell: pwsh
+        run: |
+          $tip = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { throw "cannot resolve P07 tip" }
+          $entries = @(git log --reverse --format="%H`t%s" `
+            'start/p07-t01..HEAD' --grep='^p07-t0[1-7]:')
+          if ($LASTEXITCODE -ne 0) { throw "cannot enumerate P07 task commits" }
+          if ($entries.Count -ne 7) {
+            throw "expected 7 P07 task commits, found $($entries.Count)"
+          }
+
+          foreach ($entry in $entries) {
+            $parts = $entry -split "`t", 2
+            if ($parts.Count -ne 2) {
+              throw "invalid P07 task commit entry: $entry"
+            }
+            if ($parts[1] -match '^p07-t0([1-7]):') {
+              $task = [int]$Matches[1]
+            } else {
+              throw "invalid P07 task subject: $($parts[1])"
+            }
+            git checkout --quiet --detach $parts[0]
+            if ($LASTEXITCODE -ne 0) { throw "checkout P07-t0$task failed" }
+            cmake --preset win-msvc
+            if ($LASTEXITCODE -ne 0) { throw "configure P07-t0$task failed" }
+            cmake --build build/win-msvc --target p07_tests p07_d3d12
+            if ($LASTEXITCODE -ne 0) { throw "build P07-t0$task failed" }
+            $testRegex = "^p07-t0[1-$task]$"
+            ctest --preset win-msvc -R $testRegex
+            if ($LASTEXITCODE -ne 0) { throw "tests through P07-t0$task failed" }
+          }
+
+          git checkout --quiet --detach $tip
+          if ($LASTEXITCODE -ne 0) { throw "restore P07 tip failed" }
 
   build-macos:
     name: macOS / arm64
