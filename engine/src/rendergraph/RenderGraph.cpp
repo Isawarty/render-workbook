@@ -3,9 +3,20 @@
 #include "rwb/core/Todo.h"
 
 #include <algorithm>
+#include <queue>
 #include <stdexcept>
 
 namespace rwb::rg {
+namespace {
+
+void addUnique(std::vector<PassHandle>& values, PassHandle value) {
+    if (std::none_of(values.begin(), values.end(),
+                     [value](PassHandle item) { return item == value; })) {
+        values.push_back(value);
+    }
+}
+
+} // namespace
 
 PassBuilder& PassBuilder::read(ResourceHandle resource, ResourceState state) {
     return use(resource, Access::Read, state);
@@ -19,8 +30,9 @@ PassBuilder& PassBuilder::readWrite(ResourceHandle resource, ResourceState state
     return use(resource, Access::ReadWrite, state);
 }
 
-PassBuilder& PassBuilder::dependsOn(PassHandle) {
-    RWB_TODO("p05-t02 PassBuilder::dependsOn");
+PassBuilder& PassBuilder::dependsOn(PassHandle pass) {
+    m_graph.addDependency(m_pass, pass);
+    return *this;
 }
 
 PassBuilder& PassBuilder::use(ResourceHandle resource, Access access,
@@ -75,18 +87,77 @@ void RenderGraph::addUse(PassHandle pass, ResourceUse use) {
     uses.push_back(use);
 }
 
-void RenderGraph::addDependency(PassHandle, PassHandle) {
-    RWB_TODO("p05-t02 RenderGraph::addDependency");
+void RenderGraph::addDependency(PassHandle pass, PassHandle dependency) {
+    if (pass.id >= m_passes.size() || dependency.id >= m_passes.size()) {
+        throw std::out_of_range("无效的 RenderGraph dependency handle");
+    }
+    if (pass == dependency) throw std::logic_error("RenderGraph pass 不能依赖自身");
+    addUnique(m_passes[pass.id].explicitDependencies, dependency);
 }
 
 CompiledGraph RenderGraph::compile() const {
+    const std::size_t passCount = m_passes.size();
+    std::vector<std::vector<PassHandle>> dependencies(passCount);
+    std::vector<PassHandle> lastWriter(m_resources.size());
+    std::vector<std::vector<PassHandle>> readers(m_resources.size());
+
+    for (std::uint32_t passIndex = 0; passIndex < passCount; ++passIndex) {
+        const PassHandle pass{passIndex};
+        dependencies[passIndex] = m_passes[passIndex].explicitDependencies;
+        for (const ResourceUse& use : m_passes[passIndex].uses) {
+            const std::uint32_t resourceIndex = use.resource.id;
+            if (use.access == Access::Read) {
+                if (lastWriter[resourceIndex]) {
+                    addUnique(dependencies[passIndex], lastWriter[resourceIndex]);
+                }
+                addUnique(readers[resourceIndex], pass);
+            } else {
+                if (lastWriter[resourceIndex]) {
+                    addUnique(dependencies[passIndex], lastWriter[resourceIndex]);
+                }
+                for (PassHandle reader : readers[resourceIndex]) {
+                    addUnique(dependencies[passIndex], reader);
+                }
+                readers[resourceIndex].clear();
+                lastWriter[resourceIndex] = pass;
+            }
+        }
+    }
+
+    std::vector<std::vector<PassHandle>> outgoing(passCount);
+    std::vector<std::uint32_t> indegree(passCount, 0);
+    for (std::uint32_t passIndex = 0; passIndex < passCount; ++passIndex) {
+        for (PassHandle dependency : dependencies[passIndex]) {
+            outgoing[dependency.id].push_back({passIndex});
+            ++indegree[passIndex];
+        }
+    }
+
+    std::priority_queue<std::uint32_t, std::vector<std::uint32_t>, std::greater<>> ready;
+    for (std::uint32_t index = 0; index < passCount; ++index) {
+        if (indegree[index] == 0) ready.push(index);
+    }
+    std::vector<PassHandle> order;
+    while (!ready.empty()) {
+        const std::uint32_t current = ready.top();
+        ready.pop();
+        order.push_back({current});
+        for (PassHandle next : outgoing[current]) {
+            if (--indegree[next.id] == 0) ready.push(next.id);
+        }
+    }
+    if (order.size() != passCount) {
+        throw std::logic_error("RenderGraph 包含有向环，无法拓扑排序");
+    }
+
     CompiledGraph result;
     result.m_resources = m_resources;
-    result.m_uses.resize(m_passes.size());
-    for (std::uint32_t index = 0; index < m_passes.size(); ++index) {
-        const PassNode& node = m_passes[index];
-        result.m_uses[index] = node.uses;
-        result.m_passes.push_back({{index}, node.name, {}, {}, node.execute});
+    result.m_uses.resize(passCount);
+    for (PassHandle handle : order) {
+        const PassNode& node = m_passes[handle.id];
+        result.m_uses[handle.id] = node.uses;
+        result.m_passes.push_back(
+            {handle, node.name, dependencies[handle.id], {}, node.execute});
     }
     return result;
 }
