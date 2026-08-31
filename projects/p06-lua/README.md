@@ -1,7 +1,7 @@
 # P6 — Lua 语言与引擎嵌入
 
-P6 从纯 Lua 语言练习开始，最终把脚本接到 P5 的 Render Graph。当前本地实现包含 t00–t05；
-尚未创建或发布 `start/p06-*` / `done/p06-*` tags。
+P6 从纯 Lua 语言练习开始，最终把脚本接到 P5 的 Render Graph。t00–t05 已完整交付，
+并已发布对应的 `start/p06-*` / `done/p06-*` tags。
 
 | task | 能力 | 判分 |
 |---|---|---|
