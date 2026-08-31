@@ -18,5 +18,8 @@ debug layer 干净。全黑先看 RTV clear/draw，
 有几何无纹理看 row pitch、SRV format 和 GPU descriptor handle，device removed 立即查看 DRED breadcrumbs。
 需要抓帧时用 PIX 核对 copy、transition、VB/IB view 与 descriptor table。
 
+回读复制发生在 `Present` 之前：每个 frame slot 有独立 readback buffer，状态链为
+`PRESENT → RENDER_TARGET → COPY_SOURCE → PRESENT`。不能在 flip-discard present 后再假设旧内容仍存在。
+
 <details><summary>Hint 1</summary>D3D12 texture upload 的 row pitch 有 256-byte 对齐要求；不要把紧密排列的 CPU
 行宽直接当成 footprint row pitch。</details>

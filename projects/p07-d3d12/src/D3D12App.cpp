@@ -10,6 +10,10 @@ D3D12App::~D3D12App() {
     if (m_queue && m_fence) {
         try { waitForGpu(); } catch (...) {}
     }
+    if (m_constantBuffer && m_constantMapped) {
+        m_constantBuffer->Unmap(0, nullptr);
+        m_constantMapped = nullptr;
+    }
     if (m_fenceEvent != nullptr) CloseHandle(m_fenceEvent);
     for (auto& buffer : m_backBuffers) buffer.Reset();
     m_swapchain.Reset();
@@ -67,11 +71,58 @@ void D3D12App::runFrames(uint32_t frameCount) {
         m_commandList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
         m_commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
 
+        if (m_summary.hasCubeResources) {
+            *static_cast<float*>(m_constantMapped) =
+                static_cast<float>(m_renderedFrameCount) * 0.35f;
+            ++m_renderedFrameCount;
+
+            const D3D12_VIEWPORT viewport{
+                0.0f, 0.0f,
+                static_cast<float>(m_summary.width), static_cast<float>(m_summary.height),
+                0.0f, 1.0f};
+            const D3D12_RECT scissor{
+                0, 0, static_cast<LONG>(m_summary.width),
+                static_cast<LONG>(m_summary.height)};
+            m_commandList->RSSetViewports(1, &viewport);
+            m_commandList->RSSetScissorRects(1, &scissor);
+            m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+            ID3D12DescriptorHeap* heaps[] = {m_srvHeap.Get()};
+            m_commandList->SetDescriptorHeaps(1, heaps);
+            m_commandList->SetGraphicsRootConstantBufferView(
+                0, m_constantBuffer->GetGPUVirtualAddress());
+            m_commandList->SetGraphicsRootDescriptorTable(
+                1, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
+            m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            m_commandList->IASetVertexBuffers(0, 1, &m_vertexView);
+            m_commandList->IASetIndexBuffer(&m_indexView);
+            m_commandList->DrawIndexedInstanced(m_summary.indexCount, 1, 0, 0, 0);
+        }
+
         D3D12_RESOURCE_BARRIER end = begin;
         end.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        end.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+        end.Transition.StateAfter = m_summary.hasCubeResources
+                                        ? D3D12_RESOURCE_STATE_COPY_SOURCE
+                                        : D3D12_RESOURCE_STATE_PRESENT;
         m_commandList->ResourceBarrier(1, &end);
-        m_endBarrier = {end.Transition.StateBefore, end.Transition.StateAfter};
+
+        if (m_summary.hasCubeResources) {
+            D3D12_TEXTURE_COPY_LOCATION destination{};
+            destination.pResource = m_frameReadbacks[frameIndex].Get();
+            destination.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+            destination.PlacedFootprint = m_frameReadbackFootprint;
+            D3D12_TEXTURE_COPY_LOCATION source{};
+            source.pResource = m_backBuffers[frameIndex].Get();
+            source.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+            m_commandList->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+
+            D3D12_RESOURCE_BARRIER present = end;
+            present.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+            present.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+            m_commandList->ResourceBarrier(1, &present);
+            m_endBarrier = {present.Transition.StateBefore, present.Transition.StateAfter};
+        } else {
+            m_endBarrier = {end.Transition.StateBefore, end.Transition.StateAfter};
+        }
 
         if (FAILED(m_commandList->Close())) {
             throw std::runtime_error("ID3D12GraphicsCommandList::Close failed");
@@ -87,6 +138,7 @@ void D3D12App::runFrames(uint32_t frameCount) {
             throw std::runtime_error("ID3D12CommandQueue::Signal failed");
         }
         m_frameFenceValues[frameIndex] = fenceValue;
+        m_lastRenderedFrameIndex = frameIndex;
     }
     if (m_fence) waitForGpu();
     updateInfoQueueStatus();

@@ -83,12 +83,21 @@ TEST_CASE("t04 indexed textured cube survives the WARP render path", "[t04]") {
                                app.summary().height * 4);
     size_t opaquePixels = 0;
     size_t coloredPixels = 0;
+    size_t warmCheckerPixels = 0;
+    size_t coolCheckerPixels = 0;
     for (size_t i = 0; i < rgba.size(); i += 4) {
         if (rgba[i + 3] == 255) ++opaquePixels;
         if (rgba[i] > 96 || rgba[i + 1] > 96 || rgba[i + 2] > 96) ++coloredPixels;
+        if (rgba[i] > 180 && rgba[i + 1] > 150 && rgba[i + 2] < 140)
+            ++warmCheckerPixels;
+        if (rgba[i] < 80 && rgba[i + 1] < 120 && rgba[i + 2] > 120)
+            ++coolCheckerPixels;
     }
     REQUIRE(opaquePixels == rgba.size() / 4);
     REQUIRE(coloredPixels > 500);
+    REQUIRE(warmCheckerPixels > 50);
+    REQUIRE(coolCheckerPixels > 50);
+    INFO(app.summary().infoQueueErrors);
     REQUIRE(app.summary().infoQueueClean);
 }
 

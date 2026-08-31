@@ -97,6 +97,9 @@ private:
     HANDLE m_fenceEvent = nullptr;
     uint64_t m_nextFenceValue = 1;
     std::array<uint64_t, 2> m_frameFenceValues{};
+    uint32_t m_lastRenderedFrameIndex = 0;
+    uint64_t m_renderedFrameCount = 0;
+    void* m_constantMapped = nullptr;
 
     Microsoft::WRL::ComPtr<IDXGIFactory6> m_factory;
     Microsoft::WRL::ComPtr<IDXGIAdapter1> m_adapter;
@@ -107,11 +110,17 @@ private:
     Microsoft::WRL::ComPtr<IDXGISwapChain3> m_swapchain;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
     std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, 2> m_backBuffers;
+    std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, 2> m_frameReadbacks;
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT m_frameReadbackFootprint{};
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> m_graphicsPso;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> m_computePso;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_vertexBuffer;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_indexBuffer;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_constantBuffer;
+    D3D12_VERTEX_BUFFER_VIEW m_vertexView{};
+    D3D12_INDEX_BUFFER_VIEW m_indexView{};
     Microsoft::WRL::ComPtr<ID3D12Resource> m_texture;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_computeOutput;
     Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
