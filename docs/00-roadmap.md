@@ -25,10 +25,10 @@ P0–P2 在这份规范之前就已完成并逐 tag 验证过，不回头改造�
 | **P3** | [Compute Shader 专项](../projects/p03-compute/README.md) | 35–45h | ✅ 已交付 |
 | **P4** | [延迟渲染 + PBR](../projects/p04-deferred/README.md) | 45–60h | ✅ 已交付 |
 | **P5** | [Render Graph](../projects/p05-render-graph/README.md) | 50–70h | ✅ 已交付 |
-| **P6** | [Lua（语言速通 + 引擎嵌入）](../projects/p06-lua/README.md) | 40–55h | 🚧 课程骨架 |
+| **P6** | [Lua（语言速通 + 引擎嵌入）](../projects/p06-lua/README.md) | 40–55h | ✅ 本地实现，待发布 |
 | P7 | D3D12 概念打通（Windows-only） | 35–45h | 大纲 |
 
-P3、P4 已完整交付 t01–t07；P5 已完整交付 t01–t06；P6 已建立 t00–t05 课程骨架。
+P3、P4 已完整交付 t01–t07；P5 已完整交付 t01–t06；P6 已完成本地实现与测试，尚未发布 tags。
 
 ---
 
@@ -115,16 +115,16 @@ P5 的 t01–t06 已发布；窗口默认保持 P4 漫游，按 `F1` 打开图�
 
 分两段，因为你是从零开始。
 
-**t00 语言速通（10–15h，无挖空）**：20 道纯 Lua 小题，覆盖 table / metatable /
+**t00 语言速通（10–15h，无挖空，✅ 本地实现）**：20 道纯 Lua 小题，覆盖 table / metatable /
 闭包 / 协程 / 模块，自带 runner 判分。约 2 周。
 
 | task | 内容 |
 |---|---|
-| t01 | `lua_State` 嵌入 + 栈操作 + 错误处理 |
-| t02 | C 函数注册 + userdata + metatable（向 Lua 暴露 vec3 / mat4） |
-| t03 | 用 Lua 描述材质与场景 |
-| t04 | **用 Lua 声明 render graph**（接 P5） |
-| t05 | 热重载 + 沙箱 + 协程调度 |
+| t01 | `lua_State` 嵌入 + 栈操作 + 错误处理（✅ 本地实现） |
+| t02 | C 函数注册 + userdata + metatable（向 Lua 暴露 vec3 / mat4，✅ 本地实现） |
+| t03 | 用 Lua 描述材质与场景（✅ 本地实现） |
+| t04 | **用 Lua 声明 render graph**（接 P5，✅ 本地实现） |
+| t05 | 热重载 + 沙箱 + 协程调度（✅ 本地实现） |
 
 t04 是「一举多得」真正兑现的地方。判分除了 Lua 侧断言，还有 C 侧的
 **栈平衡检查**（每次调用前后 `lua_gettop` 必须一致）—— 这是嵌入 Lua 最容易错的地方。
