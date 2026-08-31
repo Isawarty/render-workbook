@@ -10,6 +10,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -140,6 +141,8 @@ struct CameraState {
 
 class DeferredApp {
 public:
+    using ExternalFrameRecorder =
+        std::function<void(VkCommandBuffer, std::uint32_t)>;
     explicit DeferredApp(AppConfig config = {});
     ~DeferredApp();
 
@@ -151,6 +154,9 @@ public:
     void run(int frameCount = -1);
     GBufferCapture renderAndCaptureGBuffer();
     rwb::rhi::CapturedImage renderAndCaptureFinal();
+    void setExternalFrameRecorder(ExternalFrameRecorder recorder) {
+        m_externalFrameRecorder = std::move(recorder);
+    }
     static void applyCameraInput(CameraState& camera, const CameraInput& input,
                                  float deltaSeconds);
     static void applyMouseLook(CameraState& camera, float deltaX, float deltaY);
@@ -203,6 +209,22 @@ public:
     RawAttachment readbackHdr();
     bool usingSlang() const { return m_useSlang; }
 
+    // P05 的窄接入面：保持 P04 的资源、场景、相机和 swapchain 生命周期，
+    // 只把一帧的命令录制拆成可以由 Render Graph 调度的 pass。
+    FrameMatrices prepareFrameRecording();
+    void recordShadowPass(VkCommandBuffer cmd, const FrameMatrices& matrices);
+    void recordGeometryPass(VkCommandBuffer cmd, std::uint32_t imageIndex,
+                            const FrameMatrices& matrices);
+    void recordLightingPass(VkCommandBuffer cmd);
+    void recordBloomPass(VkCommandBuffer cmd, bool insertManualBarrier);
+    void recordTonemapPass(VkCommandBuffer cmd, std::uint32_t imageIndex,
+                           bool insertManualBarrier);
+    void recordTonemapBegin(VkCommandBuffer cmd, std::uint32_t imageIndex);
+    void recordTonemapEnd(VkCommandBuffer cmd);
+    VkRenderPass postRenderPass() const { return m_postRenderPass; }
+    void setUiInteractionEnabled(bool enabled);
+    bool uiInteractionEnabled() const { return m_uiInteractionEnabled; }
+
     static constexpr std::uint32_t kFramesInFlight = 1;
     static constexpr std::uint32_t kGeometrySubpass = 0;
     static constexpr std::uint32_t kLightingSubpass = 1;
@@ -251,6 +273,7 @@ private:
     AppConfig m_config;
     Stage m_stage = Stage::GBuffer;
     bool m_useSlang = false;
+    ExternalFrameRecorder m_externalFrameRecorder;
     CameraState m_camera{};
     double m_lastCameraTime = 0.0;
     double m_lastCursorX = 0.0;
@@ -259,6 +282,7 @@ private:
     bool m_cursorInitialized = false;
     bool m_escapeWasDown = false;
     bool m_leftMouseWasDown = false;
+    bool m_uiInteractionEnabled = false;
     std::unique_ptr<Context> m_ctx;
     std::unique_ptr<Swapchain> m_swapchain;
     std::unique_ptr<FrameRenderer> m_renderer;

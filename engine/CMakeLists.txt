@@ -21,6 +21,17 @@ add_library(rwb_engine STATIC
   src/rhi/Readback.cpp
   src/rhi/Shader.cpp)
 
+add_library(rwb_rendergraph STATIC
+  src/rendergraph/RenderGraph.cpp
+  src/rendergraph/TransientImagePool.cpp)
+
+target_include_directories(rwb_rendergraph PUBLIC include)
+target_link_libraries(rwb_rendergraph
+  PUBLIC volk::volk rwb_engine
+  PRIVATE rwb::warnings vma)
+
+add_library(rwb::rendergraph ALIAS rwb_rendergraph)
+
 target_include_directories(rwb_engine PUBLIC include)
 
 target_link_libraries(rwb_engine PRIVATE rwb::warnings)

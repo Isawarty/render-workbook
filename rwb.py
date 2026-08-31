@@ -47,6 +47,9 @@ PROJECTS = {
     "p04": Project(test_target="p04_tests", app_target="p04_deferred",
                    executable_dir=Path("projects/p04-deferred"),
                    tasks=7, accepts_frames=True, stages=7),
+    "p05": Project(test_target="p05_tests", app_target="p05_render_graph",
+                   executable_dir=Path("projects/p05-render-graph"),
+                   tasks=6, accepts_frames=True),
 }
 
 SYSTEM_PRESETS = {
@@ -284,7 +287,7 @@ def make_parser() -> argparse.ArgumentParser:
     run_parser = commands.add_parser("run", help="build and run a project application")
     run_parser.add_argument("project", choices=tuple(PROJECTS), nargs="?", default="p01")
     run_parser.add_argument("--frames", type=positive_int,
-                            help="exit after this many frames (supported by p01 and p04)")
+                            help="exit after this many frames (supported by p01, p04, and p05)")
     run_parser.add_argument("--stage", type=positive_int, metavar="N",
                             help="p02/p04: initialise up to stage N instead of the last one")
     return parser

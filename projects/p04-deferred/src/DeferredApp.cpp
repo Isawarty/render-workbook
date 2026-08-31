@@ -245,6 +245,12 @@ void DeferredApp::setMouseCaptured(bool captured) {
     }
 }
 
+void DeferredApp::setUiInteractionEnabled(bool enabled) {
+    if (m_uiInteractionEnabled == enabled) return;
+    m_uiInteractionEnabled = enabled;
+    setMouseCaptured(!enabled);
+}
+
 void DeferredApp::updateCameraFromInput() {
     if (m_config.offscreenCapture || !m_ctx || !m_ctx->window()) return;
     GLFWwindow* window = m_ctx->window()->handle();
@@ -254,6 +260,13 @@ void DeferredApp::updateCameraFromInput() {
                                    : 1.0f / 60.0f;
     m_lastCameraTime = now;
     const auto down = [window](int key) { return glfwGetKey(window, key) == GLFW_PRESS; };
+
+    if (m_uiInteractionEnabled) {
+        m_escapeWasDown = down(GLFW_KEY_ESCAPE);
+        m_leftMouseWasDown =
+            glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+        return;
+    }
 
     const bool escapeDown = down(GLFW_KEY_ESCAPE);
     if (escapeDown && !m_escapeWasDown) {
@@ -302,7 +315,7 @@ void DeferredApp::updateCameraFromInput() {
 
 void DeferredApp::run(int frameCount) {
     m_lastCameraTime = glfwGetTime();
-    setMouseCaptured(true);
+    setMouseCaptured(!m_uiInteractionEnabled);
     m_renderer->run(frameCount,
         [this](VkCommandBuffer cmd, std::uint32_t imageIndex, std::uint32_t) {
             updateCameraFromInput();
@@ -427,15 +440,29 @@ std::vector<float> DeferredApp::readbackIbl() const {
 }
 
 void DeferredApp::recordFrame(VkCommandBuffer cmd, std::uint32_t imageIndex) {
+    if (m_externalFrameRecorder) {
+        m_externalFrameRecorder(cmd, imageIndex);
+        return;
+    }
+    const FrameMatrices matrices = prepareFrameRecording();
+    recordShadowPass(cmd, matrices);
+    recordGeometryPass(cmd, imageIndex, matrices);
+    recordLightingPass(cmd);
+    recordBloomPass(cmd, true);
+    recordTonemapPass(cmd, imageIndex, true);
+}
+
+FrameMatrices DeferredApp::prepareFrameRecording() {
     const VkExtent2D extent = m_swapchain->extent();
     const float aspect = static_cast<float>(extent.width) / static_cast<float>(extent.height);
     const FrameMatrices matrices = buildFrameMatrices(m_camera, aspect);
-    const glm::mat4 mvp = matrices.viewProjection * matrices.model;
-    const glm::mat4 groundMvp = matrices.viewProjection;
     if (stageIndex(m_stage) >= stageIndex(Stage::Lighting)) {
         updateLightingUniform(matrices);
     }
+    return matrices;
+}
 
+void DeferredApp::recordShadowPass(VkCommandBuffer cmd, const FrameMatrices& matrices) {
     if (stageIndex(m_stage) >= stageIndex(Stage::Shadows)) {
         VkClearValue shadowClear{};
         shadowClear.depthStencil = {1.0f, 0};
@@ -461,7 +488,12 @@ void DeferredApp::recordFrame(VkCommandBuffer cmd, std::uint32_t imageIndex) {
         vkCmdDrawIndexed(cmd, m_groundIndexCount, 1, m_groundFirstIndex, 0, 0);
         vkCmdEndRenderPass(cmd);
     }
+}
 
+void DeferredApp::recordGeometryPass(VkCommandBuffer cmd, std::uint32_t imageIndex,
+                                     const FrameMatrices& matrices) {
+    const glm::mat4 mvp = matrices.viewProjection * matrices.model;
+    const glm::mat4 groundMvp = matrices.viewProjection;
     const std::array<VkClearValue, 5> clears{{
         {{{0.125f, 0.25f, 0.5f, 0.75f}}},
         {{{0.0f, 0.0f, 1.0f, 0.5f}}},
@@ -496,6 +528,9 @@ void DeferredApp::recordFrame(VkCommandBuffer cmd, std::uint32_t imageIndex) {
         vkCmdDrawIndexed(cmd, m_groundIndexCount, 1, m_groundFirstIndex, 0, 0);
     }
     vkCmdNextSubpass(cmd, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void DeferredApp::recordLightingPass(VkCommandBuffer cmd) {
     if (stageIndex(m_stage) >= stageIndex(Stage::Lighting)) {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_lightingPipeline);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_lightingLayout,
@@ -503,15 +538,20 @@ void DeferredApp::recordFrame(VkCommandBuffer cmd, std::uint32_t imageIndex) {
         vkCmdDraw(cmd, 3, 1, 0, 0);
     }
     vkCmdEndRenderPass(cmd);
+}
 
+void DeferredApp::recordBloomPass(VkCommandBuffer cmd, bool insertManualBarrier) {
     if (stageIndex(m_stage) >= stageIndex(Stage::Bloom)) {
+        const VkExtent2D extent = m_swapchain->extent();
         // MoltenVK 对 render-pass external dependency 到 storage-image read 的
         // 可见性偶发不稳定；显式 image barrier 也把教学数据流直接写在消费者前。
-        colorBarrier(cmd, m_hdr.handle, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
-                     VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
-                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+        if (insertManualBarrier) {
+            colorBarrier(cmd, m_hdr.handle, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
+                         VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
+                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+        }
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_bloomPipeline);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_bloomLayout,
                                 0, 1, &m_bloomSet, 0, nullptr);
@@ -525,28 +565,53 @@ void DeferredApp::recordFrame(VkCommandBuffer cmd, std::uint32_t imageIndex) {
                               VK_PIPELINE_STAGE_TRANSFER_BIT,
                           VK_ACCESS_SHADER_WRITE_BIT,
                           VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT};
-        colorBarrier(cmd, m_bloom.handle, VK_IMAGE_LAYOUT_GENERAL,
-                     VK_IMAGE_LAYOUT_GENERAL, m_bloomBarrier.srcAccess,
-                     m_bloomBarrier.dstAccess, m_bloomBarrier.srcStage,
-                     m_bloomBarrier.dstStage);
-
-        VkClearValue clear{};
-        clear.color.float32[3] = 1.0f;
-        VkRenderPassBeginInfo postBegin{};
-        postBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        postBegin.renderPass = m_postRenderPass;
-        postBegin.framebuffer = m_postFramebuffers.at(imageIndex);
-        postBegin.renderArea.extent = extent;
-        postBegin.clearValueCount = 1;
-        postBegin.pClearValues = &clear;
-        vkCmdBeginRenderPass(cmd, &postBegin, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_postPipeline);
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_postLayout,
-                                0, 1, &m_postSet, 0, nullptr);
-        vkCmdDraw(cmd, 3, 1, 0, 0);
-        vkCmdEndRenderPass(cmd);
+        if (insertManualBarrier) {
+            colorBarrier(cmd, m_bloom.handle, VK_IMAGE_LAYOUT_GENERAL,
+                         VK_IMAGE_LAYOUT_GENERAL, m_bloomBarrier.srcAccess,
+                         m_bloomBarrier.dstAccess, m_bloomBarrier.srcStage,
+                         m_bloomBarrier.dstStage);
+        }
     }
 }
+
+void DeferredApp::recordTonemapPass(VkCommandBuffer cmd, std::uint32_t imageIndex,
+                                    bool insertManualBarrier) {
+    if (stageIndex(m_stage) >= stageIndex(Stage::Bloom)) {
+        // HDR 有 Bloom(compute) 与 Tonemap(fragment) 两个消费者。不能假设前一条
+        // color->compute|fragment barrier 在经过 compute pass 后仍替第二个消费者
+        // 建立了清晰的 writer scope；MoltenVK 上这会偶发读到洋红污染。
+        if (insertManualBarrier) {
+            colorBarrier(cmd, m_hdr.handle, VK_IMAGE_LAYOUT_GENERAL,
+                         VK_IMAGE_LAYOUT_GENERAL,
+                         VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                         VK_ACCESS_SHADER_READ_BIT,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+        }
+        recordTonemapBegin(cmd, imageIndex);
+        recordTonemapEnd(cmd);
+    }
+}
+
+void DeferredApp::recordTonemapBegin(VkCommandBuffer cmd, std::uint32_t imageIndex) {
+    const VkExtent2D extent = m_swapchain->extent();
+    VkClearValue clear{};
+    clear.color.float32[3] = 1.0f;
+    VkRenderPassBeginInfo postBegin{};
+    postBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    postBegin.renderPass = m_postRenderPass;
+    postBegin.framebuffer = m_postFramebuffers.at(imageIndex);
+    postBegin.renderArea.extent = extent;
+    postBegin.clearValueCount = 1;
+    postBegin.pClearValues = &clear;
+    vkCmdBeginRenderPass(cmd, &postBegin, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_postPipeline);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_postLayout,
+                            0, 1, &m_postSet, 0, nullptr);
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+}
+
+void DeferredApp::recordTonemapEnd(VkCommandBuffer cmd) { vkCmdEndRenderPass(cmd); }
 
 RawAttachment DeferredApp::readbackBloom() {
     if (!m_bloom.valid()) return {};

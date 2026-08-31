@@ -24,7 +24,7 @@ P0–P2 在这份规范之前就已完成并逐 tag 验证过，不回头改造�
 | **P2** | [资源与场景](../projects/p02-resources/README.md) | 45–60h | ✅ 已交付 |
 | **P3** | [Compute Shader 专项](../projects/p03-compute/README.md) | 35–45h | ✅ 已交付 |
 | **P4** | [延迟渲染 + PBR](../projects/p04-deferred/README.md) | 45–60h | ✅ 已交付 |
-| P5 | Render Graph | 50–70h | 大纲 |
+| **P5** | [Render Graph](../projects/p05-render-graph/README.md) | 50–70h | 🚧 发布中 |
 | P6 | Lua（语言速通 + 引擎嵌入） | 40–55h | 大纲 |
 | P7 | D3D12 概念打通（Windows-only） | 35–45h | 大纲 |
 
@@ -102,7 +102,7 @@ t07 是 shader 语言的分水岭。Slang 一份源码同时产出 SPIR-V / DXIL
 | t03 | **自动 barrier 推导**（读写状态机） |
 | t04 | 资源生命周期分析 + transient 资源别名（内存复用） |
 | t05 | 用 render graph 重写 P4 的延迟管线 |
-| t06 | 图可视化（graphviz 导出 / **ImGui 面板** —— ImGui 的集成从 P2 挪到了这里） |
+| t06 | 图可视化（Graphviz 导出 + **ImGui 面板**） |
 
 图算法部分是纯 CPU 逻辑，可以写高覆盖单测；端到端验收是
 「渲染结果与 P4 的 golden image 一致」。

@@ -46,7 +46,7 @@ fail its tests legibly. If you cannot compile, you cannot even start the task.
 | P2 | Resources & scene (VMA, descriptors, textures, glTF, MSAA) | 45–60 | Shipped |
 | P3 | Compute shaders (reduction, scan, bitonic sort, particles) | 35–45 | Shipped |
 | P4 | Deferred rendering + PBR + IBL, light-space shadows, migration to Slang | 45–60 | Shipped |
-| P5 | Render graph with automatic barrier derivation | 50–70 | Outlined |
+| P5 | Render graph: DAG scheduling, automatic barriers, transient aliasing, P4 migration, ImGui/DOT visualization | 50–70 | In progress |
 | P6 | Lua: language, then embedding as the engine's scripting layer | 40–55 | Outlined |
 | P7 | D3D12 concept walkthrough (Windows only) | 35–45 | Outlined |
 
@@ -86,7 +86,7 @@ Use `python rwb.py --dry-run test p01-t03` to print those commands without
 executing them, or `python rwb.py --help` for all actions.
 
 Most dependencies are fetched by CMake and pinned by SHA256 — GLFW, glm,
-Vulkan-Headers, volk, glslang, Catch2, stb. P0–P3 and early P4 (t01–t06) compile
+Vulkan-Headers, volk, glslang, Catch2, stb, and Dear ImGui. P0–P3 and early P4 (t01–t06) compile
 without an SDK; P4-t07 additionally requires `slangc` from a Vulkan SDK or
 standalone package. Running L1 tests also requires the SDK's validation layer.
 

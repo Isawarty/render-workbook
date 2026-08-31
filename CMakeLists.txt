@@ -80,3 +80,7 @@ endif()
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/projects/p04-deferred/CMakeLists.txt")
   add_subdirectory(projects/p04-deferred)
 endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/projects/p05-render-graph/CMakeLists.txt")
+  add_subdirectory(projects/p05-render-graph)
+endif()
