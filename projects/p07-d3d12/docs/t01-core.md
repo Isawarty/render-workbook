@@ -12,8 +12,10 @@ swapchain。完成后应能把这些对象逐项映射回 Vulkan，而不是只�
 python rwb.py test p07-t01
 ```
 
-通过信号是 `p07-t01 Passed`，状态摘要确认使用 WARP、两份 frame resources、完整 queue/list/swapchain，
-且 `ID3D12InfoQueue` 没有 error/corruption。推荐断点在 adapter 枚举、`D3D12CreateDevice`、
+通过信号是 `p07-t01 Passed`，状态摘要确认使用软件 adapter、两份 allocator/back buffer、已关闭的
+direct command list、RTV heap 与 swapchain，运行两轮消息泵后 `ID3D12InfoQueue` 仍没有
+error/corruption。t01 尚不提交或 present；等 t03 引入 barrier 与 fence 后才安全开启帧循环。
+推荐断点在 adapter 枚举、`D3D12CreateDevice`、
 `CreateCommandList` 和 `CreateSwapChainForHwnd`；设备创建失败先查 Windows SDK/feature level，窗口失败
 查 HWND，debug layer 报错再查对象参数和生命周期。不要回退到硬件 adapter 来让测试偶然通过。
 

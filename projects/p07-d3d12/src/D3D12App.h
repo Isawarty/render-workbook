@@ -10,6 +10,7 @@
 #endif
 #include <windows.h>
 #include <d3d12.h>
+#include <d3d12sdklayers.h>
 #include <dxgi1_6.h>
 #include <wrl/client.h>
 
@@ -26,11 +27,14 @@ enum class Stage : uint32_t {
 
 struct StateSummary {
     bool usingWarp = false;
+    bool adapterIsSoftware = false;
     bool debugLayerEnabled = false;
     bool infoQueueClean = false;
     bool hasQueue = false;
     bool hasCommandList = false;
+    bool commandListClosed = false;
     bool hasSwapchain = false;
+    bool hasRtvHeap = false;
     bool hasRootSignature = false;
     bool hasGraphicsPso = false;
     bool hasSrvHeap = false;
@@ -38,6 +42,7 @@ struct StateSummary {
     bool hasCubeResources = false;
     bool hasComputePso = false;
     uint32_t frameCount = 0;
+    uint32_t allocatorCount = 0;
     uint32_t width = 128;
     uint32_t height = 128;
     uint32_t rootParameterCount = 0;
@@ -47,6 +52,7 @@ struct StateSummary {
     D3D12_COMMAND_LIST_TYPE queueType = D3D12_COMMAND_LIST_TYPE_DIRECT;
     DXGI_FORMAT textureFormat = DXGI_FORMAT_UNKNOWN;
     uint64_t completedFence = 0;
+    std::string infoQueueErrors;
 };
 
 struct BarrierSnapshot {
@@ -80,6 +86,7 @@ private:
     void createTexturedCube();
     void createComputePipeline();
     void waitForGpu();
+    void updateInfoQueueStatus();
 
     StateSummary m_summary;
     BarrierSnapshot m_beginBarrier;
@@ -96,6 +103,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
     Microsoft::WRL::ComPtr<IDXGISwapChain3> m_swapchain;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
+    std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, 2> m_backBuffers;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> m_graphicsPso;
@@ -104,6 +112,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> m_texture;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_computeOutput;
     Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
+    Microsoft::WRL::ComPtr<ID3D12InfoQueue> m_infoQueue;
 };
 
 std::string shaderDirectory();

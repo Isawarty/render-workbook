@@ -88,6 +88,10 @@ jobs:
         run: python .github/scripts/install_slang.py
       - run: cmake --preset win-msvc
       - run: cmake --build build/win-msvc
+      # P07 是 Windows-only；Linux/macOS 不可能替它执行 WARP 验收。
+      # 随 P07 逐题交付扩展这里的正则，不能只把“编译通过”当成课程测试通过。
+      - name: Test P07-t01 on WARP
+        run: ctest --preset win-msvc -R '^p07-t01$'
 
   build-macos:
     name: macOS / arm64

@@ -21,17 +21,23 @@ std::string readText(const std::filesystem::path& path) {
 
 } // namespace
 
-TEST_CASE("t01 WARP core creates the full submission path", "[t01]") {
+TEST_CASE("t01 WARP core creates the command and swapchain path", "[t01]") {
     D3D12App app;
     app.initialize(Stage::Core);
+    app.runFrames(2);
     const auto& state = app.summary();
     REQUIRE(state.usingWarp);
+    REQUIRE(state.adapterIsSoftware);
     REQUIRE(state.debugLayerEnabled);
     REQUIRE(state.hasQueue);
     REQUIRE(state.hasCommandList);
+    REQUIRE(state.commandListClosed);
     REQUIRE(state.hasSwapchain);
+    REQUIRE(state.hasRtvHeap);
     REQUIRE(state.frameCount == 2);
+    REQUIRE(state.allocatorCount == state.frameCount);
     REQUIRE(state.queueType == D3D12_COMMAND_LIST_TYPE_DIRECT);
+    INFO(state.infoQueueErrors);
     REQUIRE(state.infoQueueClean);
 }
 
