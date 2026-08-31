@@ -1,21 +1,41 @@
 #include "rwb/rendergraph/RenderGraph.h"
 
-#include "rwb/core/Todo.h"
-
 #include <algorithm>
+#include <limits>
 #include <queue>
+#include <sstream>
 #include <stdexcept>
+#include <unordered_set>
 
 namespace rwb::rg {
 namespace {
 
 bool writes(Access access) { return access != Access::Read; }
 
+const char* accessLabel(Access access) {
+    switch (access) {
+    case Access::Read: return "R";
+    case Access::Write: return "W";
+    case Access::ReadWrite: return "RW";
+    }
+    return "?";
+}
+
 void addUnique(std::vector<PassHandle>& values, PassHandle value) {
     if (std::none_of(values.begin(), values.end(),
                      [value](PassHandle item) { return item == value; })) {
         values.push_back(value);
     }
+}
+
+std::string dotEscape(const std::string& text) {
+    std::string escaped;
+    escaped.reserve(text.size());
+    for (char ch : text) {
+        if (ch == '"' || ch == '\\') escaped.push_back('\\');
+        escaped.push_back(ch);
+    }
+    return escaped;
 }
 
 } // namespace
@@ -37,8 +57,7 @@ PassBuilder& PassBuilder::dependsOn(PassHandle pass) {
     return *this;
 }
 
-PassBuilder& PassBuilder::use(ResourceHandle resource, Access access,
-                              ResourceState state) {
+PassBuilder& PassBuilder::use(ResourceHandle resource, Access access, ResourceState state) {
     m_graph.addUse(m_pass, {resource, access, state});
     return *this;
 }
@@ -69,16 +88,12 @@ PassHandle RenderGraph::addPass(std::string name, Setup setup, Execute execute) 
 }
 
 const ResourceDesc& RenderGraph::resource(ResourceHandle handle) const {
-    if (handle.id >= m_resources.size()) {
-        throw std::out_of_range("无效的 RenderGraph resource handle");
-    }
+    if (handle.id >= m_resources.size()) throw std::out_of_range("无效的 RenderGraph resource handle");
     return m_resources[handle.id];
 }
 
 void RenderGraph::addUse(PassHandle pass, ResourceUse use) {
-    if (pass.id >= m_passes.size()) {
-        throw std::out_of_range("无效的 RenderGraph pass handle");
-    }
+    if (pass.id >= m_passes.size()) throw std::out_of_range("无效的 RenderGraph pass handle");
     (void)resource(use.resource);
     auto& uses = m_passes[pass.id].uses;
     if (std::any_of(uses.begin(), uses.end(), [&](const ResourceUse& item) {
@@ -136,8 +151,8 @@ CompiledGraph RenderGraph::compile() const {
     }
 
     std::priority_queue<std::uint32_t, std::vector<std::uint32_t>, std::greater<>> ready;
-    for (std::uint32_t index = 0; index < passCount; ++index) {
-        if (indegree[index] == 0) ready.push(index);
+    for (std::uint32_t i = 0; i < passCount; ++i) {
+        if (indegree[i] == 0) ready.push(i);
     }
     std::vector<PassHandle> order;
     while (!ready.empty()) {
@@ -170,12 +185,14 @@ CompiledGraph RenderGraph::compile() const {
         VkAccessFlags visibleAccess = 0;
     };
     std::vector<LastWriter> writers(m_resources.size());
+    std::vector<std::uint32_t> position(passCount);
 
-    for (PassHandle handle : order) {
+    for (std::uint32_t orderIndex = 0; orderIndex < order.size(); ++orderIndex) {
+        const PassHandle handle = order[orderIndex];
+        position[handle.id] = orderIndex;
         const PassNode& node = m_passes[handle.id];
+        CompiledPass compiled{handle, node.name, dependencies[handle.id], {}, node.execute};
         result.m_uses[handle.id] = node.uses;
-        CompiledPass compiled{
-            handle, node.name, dependencies[handle.id], {}, node.execute};
         for (const ResourceUse& use : node.uses) {
             PreviousUse& before = previous[use.resource.id];
             LastWriter& writer = writers[use.resource.id];
@@ -185,21 +202,19 @@ CompiledGraph RenderGraph::compile() const {
             const bool firstTransition = !before.valid &&
                 (source.layout != use.state.layout || source.access != use.state.access);
             const bool hazard = before.valid &&
-                (writes(before.access) || writes(use.access) ||
-                 source.layout != use.state.layout);
+                (writes(before.access) || writes(use.access) || source.layout != use.state.layout);
             const bool writerNotVisible = use.access == Access::Read && writer.valid &&
                 (((writer.visibleStages & use.state.stages) != use.state.stages) ||
                  ((writer.visibleAccess & use.state.access) != use.state.access));
             if (writerNotVisible && !writes(before.access) &&
                 before.state.layout == use.state.layout) {
-                compiled.barriers.push_back(
-                    {use.resource, writer.pass, handle, writer.state, use.state});
+                compiled.barriers.push_back({use.resource, writer.pass, handle,
+                                             writer.state, use.state});
                 writer.visibleStages |= use.state.stages;
                 writer.visibleAccess |= use.state.access;
             } else if (firstTransition || hazard) {
-                compiled.barriers.push_back({
-                    use.resource, before.valid ? before.pass : PassHandle{},
-                    handle, source, use.state});
+                compiled.barriers.push_back({use.resource,
+                    before.valid ? before.pass : PassHandle{}, handle, source, use.state});
                 if (writer.valid && !writes(use.access)) {
                     writer.visibleStages |= use.state.stages;
                     writer.visibleAccess |= use.state.access;
@@ -212,6 +227,49 @@ CompiledGraph RenderGraph::compile() const {
         }
         result.m_passes.push_back(std::move(compiled));
     }
+
+    const std::uint32_t unused = std::numeric_limits<std::uint32_t>::max();
+    std::vector<std::uint32_t> first(m_resources.size(), unused);
+    std::vector<std::uint32_t> last(m_resources.size(), 0);
+    for (PassHandle pass : order) {
+        for (const ResourceUse& use : m_passes[pass.id].uses) {
+            first[use.resource.id] = std::min(first[use.resource.id], position[pass.id]);
+            last[use.resource.id] = std::max(last[use.resource.id], position[pass.id]);
+        }
+    }
+
+    struct Slot {
+        ResourceKind kind;
+        std::uint64_t key;
+        std::uint64_t capacity;
+        std::uint32_t lastUse;
+        bool reusable;
+    };
+    std::vector<Slot> slots;
+    for (std::uint32_t resourceIndex = 0; resourceIndex < m_resources.size(); ++resourceIndex) {
+        if (first[resourceIndex] == unused) continue;
+        const ResourceDesc& desc = m_resources[resourceIndex];
+        std::uint32_t slotIndex = unused;
+        if (desc.transient) {
+            for (std::uint32_t i = 0; i < slots.size(); ++i) {
+                Slot& slot = slots[i];
+                if (slot.reusable && slot.kind == desc.kind &&
+                    slot.key == desc.compatibilityKey && slot.lastUse < first[resourceIndex]) {
+                    slotIndex = i;
+                    slot.capacity = std::max(slot.capacity, desc.sizeBytes);
+                    slot.lastUse = last[resourceIndex];
+                    break;
+                }
+            }
+        }
+        if (slotIndex == unused) {
+            slotIndex = static_cast<std::uint32_t>(slots.size());
+            slots.push_back({desc.kind, desc.compatibilityKey, desc.sizeBytes,
+                             last[resourceIndex], desc.transient});
+        }
+        result.m_lifetimes.push_back({{resourceIndex}, first[resourceIndex],
+                                      last[resourceIndex], slotIndex});
+    }
     return result;
 }
 
@@ -220,6 +278,9 @@ void CompiledGraph::execute(VkCommandBuffer commandBuffer) const {
         if (commandBuffer != VK_NULL_HANDLE) {
             for (const Barrier& barrier : pass.barriers) {
                 const ResourceDesc& resource = m_resources[barrier.resource.id];
+                // 第一次使用的 layout transition 仍由创建资源或 render pass 负责；
+                // Render Graph 接管的是 pass 之间的 hazard。没有实体 image 的资源
+                // 是 render-pass subpass/input attachment，由原生 subpass dependency 管理。
                 if (!barrier.before || resource.image == VK_NULL_HANDLE) continue;
                 VkImageMemoryBarrier imageBarrier{};
                 imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -244,7 +305,26 @@ void CompiledGraph::execute(VkCommandBuffer commandBuffer) const {
 }
 
 std::string CompiledGraph::toDot() const {
-    RWB_TODO("p05-t06 CompiledGraph::toDot");
+    std::ostringstream out;
+    out << "digraph RenderGraph {\n  rankdir=LR;\n";
+    for (std::uint32_t i = 0; i < m_resources.size(); ++i) {
+        out << "  r" << i << " [shape=ellipse,label=\""
+            << dotEscape(m_resources[i].name) << "\"];\n";
+    }
+    for (const CompiledPass& pass : m_passes) {
+        out << "  p" << pass.handle.id << " [shape=box,label=\""
+            << dotEscape(pass.name) << "\"];\n";
+        for (const ResourceUse& use : m_uses[pass.handle.id]) {
+            if (use.access == Access::Read) {
+                out << "  r" << use.resource.id << " -> p" << pass.handle.id;
+            } else {
+                out << "  p" << pass.handle.id << " -> r" << use.resource.id;
+            }
+            out << " [label=\"" << accessLabel(use.access) << "\"];\n";
+        }
+    }
+    out << "}\n";
+    return out.str();
 }
 
 } // namespace rwb::rg
