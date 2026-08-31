@@ -9,6 +9,8 @@
 namespace rwb::rg {
 namespace {
 
+bool writes(Access access) { return access != Access::Read; }
+
 void addUnique(std::vector<PassHandle>& values, PassHandle value) {
     if (std::none_of(values.begin(), values.end(),
                      [value](PassHandle item) { return item == value; })) {
@@ -153,17 +155,90 @@ CompiledGraph RenderGraph::compile() const {
     CompiledGraph result;
     result.m_resources = m_resources;
     result.m_uses.resize(passCount);
+    struct PreviousUse {
+        bool valid = false;
+        PassHandle pass;
+        Access access = Access::Read;
+        ResourceState state{};
+    };
+    std::vector<PreviousUse> previous(m_resources.size());
+    struct LastWriter {
+        bool valid = false;
+        PassHandle pass;
+        ResourceState state{};
+        VkPipelineStageFlags visibleStages = 0;
+        VkAccessFlags visibleAccess = 0;
+    };
+    std::vector<LastWriter> writers(m_resources.size());
+
     for (PassHandle handle : order) {
         const PassNode& node = m_passes[handle.id];
         result.m_uses[handle.id] = node.uses;
-        result.m_passes.push_back(
-            {handle, node.name, dependencies[handle.id], {}, node.execute});
+        CompiledPass compiled{
+            handle, node.name, dependencies[handle.id], {}, node.execute};
+        for (const ResourceUse& use : node.uses) {
+            PreviousUse& before = previous[use.resource.id];
+            LastWriter& writer = writers[use.resource.id];
+            const ResourceState source = before.valid
+                ? before.state
+                : m_resources[use.resource.id].initialState;
+            const bool firstTransition = !before.valid &&
+                (source.layout != use.state.layout || source.access != use.state.access);
+            const bool hazard = before.valid &&
+                (writes(before.access) || writes(use.access) ||
+                 source.layout != use.state.layout);
+            const bool writerNotVisible = use.access == Access::Read && writer.valid &&
+                (((writer.visibleStages & use.state.stages) != use.state.stages) ||
+                 ((writer.visibleAccess & use.state.access) != use.state.access));
+            if (writerNotVisible && !writes(before.access) &&
+                before.state.layout == use.state.layout) {
+                compiled.barriers.push_back(
+                    {use.resource, writer.pass, handle, writer.state, use.state});
+                writer.visibleStages |= use.state.stages;
+                writer.visibleAccess |= use.state.access;
+            } else if (firstTransition || hazard) {
+                compiled.barriers.push_back({
+                    use.resource, before.valid ? before.pass : PassHandle{},
+                    handle, source, use.state});
+                if (writer.valid && !writes(use.access)) {
+                    writer.visibleStages |= use.state.stages;
+                    writer.visibleAccess |= use.state.access;
+                }
+            }
+            if (writes(use.access)) {
+                writer = {true, handle, use.state, 0, 0};
+            }
+            before = {true, handle, use.access, use.state};
+        }
+        result.m_passes.push_back(std::move(compiled));
     }
     return result;
 }
 
 void CompiledGraph::execute(VkCommandBuffer commandBuffer) const {
     for (const CompiledPass& pass : m_passes) {
+        if (commandBuffer != VK_NULL_HANDLE) {
+            for (const Barrier& barrier : pass.barriers) {
+                const ResourceDesc& resource = m_resources[barrier.resource.id];
+                if (!barrier.before || resource.image == VK_NULL_HANDLE) continue;
+                VkImageMemoryBarrier imageBarrier{};
+                imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                imageBarrier.srcAccessMask = barrier.source.access;
+                imageBarrier.dstAccessMask = barrier.destination.access;
+                imageBarrier.oldLayout = barrier.source.layout;
+                imageBarrier.newLayout = barrier.destination.layout;
+                imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                imageBarrier.image = resource.image;
+                imageBarrier.subresourceRange.aspectMask = resource.aspectMask;
+                imageBarrier.subresourceRange.levelCount = 1;
+                imageBarrier.subresourceRange.layerCount = 1;
+                vkCmdPipelineBarrier(commandBuffer,
+                                     barrier.source.stages,
+                                     barrier.destination.stages,
+                                     0, 0, nullptr, 0, nullptr, 1, &imageBarrier);
+            }
+        }
         if (pass.execute) pass.execute(commandBuffer);
     }
 }
