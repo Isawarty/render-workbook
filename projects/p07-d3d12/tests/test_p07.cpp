@@ -48,7 +48,9 @@ TEST_CASE("t02 root signature PSO and shader-visible heap are live", "[t02]") {
     REQUIRE(state.hasRootSignature);
     REQUIRE(state.hasGraphicsPso);
     REQUIRE(state.hasSrvHeap);
+    REQUIRE(state.srvHeapShaderVisible);
     REQUIRE(state.rootParameterCount == 2);
+    INFO(state.infoQueueErrors);
     REQUIRE(state.infoQueueClean);
 }
 

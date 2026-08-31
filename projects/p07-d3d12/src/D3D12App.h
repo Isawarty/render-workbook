@@ -38,6 +38,7 @@ struct StateSummary {
     bool hasRootSignature = false;
     bool hasGraphicsPso = false;
     bool hasSrvHeap = false;
+    bool srvHeapShaderVisible = false;
     bool hasFence = false;
     bool hasCubeResources = false;
     bool hasComputePso = false;

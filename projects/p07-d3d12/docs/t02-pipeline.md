@@ -5,6 +5,7 @@
 建立一份含 CBV 与 SRV descriptor table 的 root signature，创建 shader-visible CBV/SRV/UAV heap，
 再把 shader bytecode、input layout、raster/depth/blend 状态打包成 graphics PSO。对照 Vulkan 时要分清：
 root signature 更接近 pipeline layout，descriptor table 才承担 descriptor set 的绑定角色。
+本题的最小三角形由 `SV_VertexID` 生成，因此 input layout 合法地为空；真实 vertex/index layout 留到 t04。
 
 ## 验收与调试入口
 

@@ -13,10 +13,11 @@ add_library(p07_lib STATIC
 target_include_directories(p07_lib PUBLIC src)
 target_include_directories(p07_lib PRIVATE "${CMAKE_SOURCE_DIR}/engine/include")
 target_link_libraries(p07_lib
-  PUBLIC d3d12 dxgi dxguid
+  PUBLIC d3d12 dxgi dxguid d3dcompiler
   PRIVATE rwb::warnings)
 target_compile_definitions(p07_lib PRIVATE
-  RWB_P07_SHADER_DIR="${CMAKE_BINARY_DIR}/shaders/p07")
+  RWB_P07_SHADER_DIR="${CMAKE_BINARY_DIR}/shaders/p07"
+  RWB_P07_SOURCE_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 
 add_executable(p07_d3d12 src/main.cpp)
 target_link_libraries(p07_d3d12 PRIVATE p07_lib rwb::warnings)
