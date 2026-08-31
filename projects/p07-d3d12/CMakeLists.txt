@@ -45,6 +45,7 @@ file(MAKE_DIRECTORY "${P07_SLANG_OUT_DIR}")
 if(P07_SLANGC)
   set(P07_SLANG_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang")
   set(P07_DXIL "${P07_SLANG_OUT_DIR}/shared.dxil")
+  set(P07_SPIRV "${P07_SLANG_OUT_DIR}/shared.spv")
   add_custom_command(
     OUTPUT "${P07_DXIL}"
     COMMAND "${P07_SLANGC}" "${P07_SLANG_SOURCE}"
@@ -52,9 +53,14 @@ if(P07_SLANGC)
     DEPENDS "${P07_SLANG_SOURCE}"
     COMMENT "slangc   shared.slang -> shared.dxil"
     VERBATIM)
-  # RWB_TODO(p07-t06): 为同一个 entry 增加 SPIR-V 1.5 custom command，
-  # 并让 target 同时依赖 shared.dxil 与 shared.spv。
-  add_custom_target(p07_slang_shaders DEPENDS "${P07_DXIL}")
+  add_custom_command(
+    OUTPUT "${P07_SPIRV}"
+    COMMAND "${P07_SLANGC}" "${P07_SLANG_SOURCE}"
+            -target spirv -profile spirv_1_5 -entry computeMain -stage compute -o "${P07_SPIRV}"
+    DEPENDS "${P07_SLANG_SOURCE}"
+    COMMENT "slangc   shared.slang -> shared.spv"
+    VERBATIM)
+  add_custom_target(p07_slang_shaders DEPENDS "${P07_DXIL}" "${P07_SPIRV}")
   add_dependencies(p07_tests p07_slang_shaders)
   add_dependencies(p07_d3d12 p07_slang_shaders)
 else()
