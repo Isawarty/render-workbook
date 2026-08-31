@@ -61,6 +61,11 @@ FetchContent_Declare(tinygltf
   URL      https://github.com/syoyo/tinygltf/archive/b956fa3e9deeb7ee7f0f22c08bda9b3a684a98dc.tar.gz
   URL_HASH SHA256=6241a902f28d6a1b28f0709124dd09b6867d71a55a35ddf33c315e378f0940ac)   # v2.9.5
 
+FetchContent_Declare(lua
+  URL      https://www.lua.org/ftp/lua-5.4.9.tar.gz
+  URL_HASH SHA256=2335b6c582a52654f94612bf10d2f4672805d05329aa6568b1d8cd9e5c6fb8e6
+  SOURCE_SUBDIR rwb-lua-has-no-cmake)
+
 # --- 各依赖的构建开关 ------------------------------------------------------
 function(_rwb_configure_options name)
   if(name STREQUAL "")
@@ -146,6 +151,34 @@ macro(rwb_require)
           ${imgui_SOURCE_DIR}/imgui_tables.cpp ${imgui_SOURCE_DIR}/imgui_widgets.cpp
           ${imgui_SOURCE_DIR}/imgui_demo.cpp)
         target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+      endif()
+
+    elseif(_dep STREQUAL "lua")
+      FetchContent_MakeAvailable(lua)
+      if(NOT TARGET rwb_lua_static)
+        set(_lua_src ${lua_SOURCE_DIR}/src)
+        add_library(rwb_lua_static STATIC
+          ${_lua_src}/lapi.c ${_lua_src}/lauxlib.c ${_lua_src}/lbaselib.c
+          ${_lua_src}/lcode.c ${_lua_src}/lcorolib.c ${_lua_src}/lctype.c
+          ${_lua_src}/ldblib.c ${_lua_src}/ldebug.c ${_lua_src}/ldo.c
+          ${_lua_src}/ldump.c ${_lua_src}/lfunc.c ${_lua_src}/lgc.c
+          ${_lua_src}/linit.c ${_lua_src}/liolib.c ${_lua_src}/llex.c
+          ${_lua_src}/lmathlib.c ${_lua_src}/lmem.c ${_lua_src}/loadlib.c
+          ${_lua_src}/lobject.c ${_lua_src}/lopcodes.c ${_lua_src}/loslib.c
+          ${_lua_src}/lparser.c ${_lua_src}/lstate.c ${_lua_src}/lstring.c
+          ${_lua_src}/lstrlib.c ${_lua_src}/ltable.c ${_lua_src}/ltablib.c
+          ${_lua_src}/ltm.c ${_lua_src}/lundump.c ${_lua_src}/lutf8lib.c
+          ${_lua_src}/lvm.c ${_lua_src}/lzio.c)
+        target_include_directories(rwb_lua_static PUBLIC ${_lua_src})
+        if(UNIX)
+          target_compile_definitions(rwb_lua_static PRIVATE LUA_USE_POSIX LUA_USE_DLOPEN)
+          target_link_libraries(rwb_lua_static PRIVATE ${CMAKE_DL_LIBS} m)
+        endif()
+        add_library(lua::lua ALIAS rwb_lua_static)
+
+        add_executable(rwb_lua_cli ${_lua_src}/lua.c)
+        target_link_libraries(rwb_lua_cli PRIVATE rwb_lua_static)
+        set_target_properties(rwb_lua_cli PROPERTIES OUTPUT_NAME lua)
       endif()
 
     else()

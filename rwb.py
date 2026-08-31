@@ -30,6 +30,7 @@ class Project:
     accepts_frames: bool = False
     # The application takes a positional stage number 1..stages.
     stages: int = 0
+    first_task: int = 1
 
 
 PROJECTS = {
@@ -50,6 +51,7 @@ PROJECTS = {
     "p05": Project(test_target="p05_tests", app_target="p05_render_graph",
                    executable_dir=Path("projects/p05-render-graph"),
                    tasks=6, accepts_frames=True),
+    "p06": Project(test_target="p06_tests", tasks=5, first_task=0),
 }
 
 SYSTEM_PRESETS = {
@@ -170,9 +172,9 @@ def parse_selection(selection: str) -> tuple[str, Optional[str]]:
     if task is not None:
         if project.tasks == 0:
             raise UserError(f"{project_name} has no numbered tasks")
-        if not 1 <= int(task) <= project.tasks:
+        if not project.first_task <= int(task) <= project.tasks:
             raise UserError(
-                f"{project_name} task number must be between t01 and "
+                f"{project_name} task number must be between t{project.first_task:02d} and "
                 f"t{project.tasks:02d}"
             )
     if checkpoint is not None and int(checkpoint) < 1:

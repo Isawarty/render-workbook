@@ -25,10 +25,10 @@ P0–P2 在这份规范之前就已完成并逐 tag 验证过，不回头改造�
 | **P3** | [Compute Shader 专项](../projects/p03-compute/README.md) | 35–45h | ✅ 已交付 |
 | **P4** | [延迟渲染 + PBR](../projects/p04-deferred/README.md) | 45–60h | ✅ 已交付 |
 | **P5** | [Render Graph](../projects/p05-render-graph/README.md) | 50–70h | ✅ 已交付 |
-| P6 | Lua（语言速通 + 引擎嵌入） | 40–55h | 大纲 |
+| **P6** | [Lua（语言速通 + 引擎嵌入）](../projects/p06-lua/README.md) | 40–55h | 🚧 课程骨架 |
 | P7 | D3D12 概念打通（Windows-only） | 35–45h | 大纲 |
 
-P3、P4 已完整交付 t01–t07；P5 已完整交付 t01–t06。
+P3、P4 已完整交付 t01–t07；P5 已完整交付 t01–t06；P6 已建立 t00–t05 课程骨架。
 
 ---
 

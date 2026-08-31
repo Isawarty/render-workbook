@@ -47,7 +47,7 @@ fail its tests legibly. If you cannot compile, you cannot even start the task.
 | P3 | Compute shaders (reduction, scan, bitonic sort, particles) | 35–45 | Shipped |
 | P4 | Deferred rendering + PBR + IBL, light-space shadows, migration to Slang | 45–60 | Shipped |
 | P5 | Render graph: DAG scheduling, automatic barriers, transient aliasing, P4 migration, ImGui/DOT visualization | 50–70 | Shipped |
-| P6 | Lua: language, then embedding as the engine's scripting layer | 40–55 | Outlined |
+| P6 | Lua: language, embedding, scene/graph scripts, sandbox and hot reload | 40–55 | Course skeleton |
 | P7 | D3D12 concept walkthrough (Windows only) | 35–45 | Outlined |
 
 Roughly 300–390 hours end to end.
