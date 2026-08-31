@@ -56,6 +56,7 @@ if(P07_SLANGC)
   # 并让 target 同时依赖 shared.dxil 与 shared.spv。
   add_custom_target(p07_slang_shaders DEPENDS "${P07_DXIL}")
   add_dependencies(p07_tests p07_slang_shaders)
+  add_dependencies(p07_d3d12 p07_slang_shaders)
 else()
   message(STATUS "slangc not found: P07 t01-t05 remain buildable; t06 requires slangc.")
   add_custom_target(p07_slang_shaders

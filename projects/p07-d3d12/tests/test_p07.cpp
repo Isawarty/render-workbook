@@ -112,6 +112,7 @@ TEST_CASE("t05 compute SAXPY readback matches the CPU reference", "[t05]") {
         REQUIRE(std::abs(result[i] - (2.5f * x[i] + y[i])) < 1e-6f);
     }
     REQUIRE(app.summary().hasComputePso);
+    INFO(app.summary().infoQueueErrors);
     REQUIRE(app.summary().infoQueueClean);
 }
 
